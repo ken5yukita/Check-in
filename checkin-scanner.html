@@ -150,6 +150,7 @@ body[data-view="error"] #error{display:flex}
 <!-- ── スキャン中 ── -->
 <section class="screen" id="scan">
   <video id="video" playsinline muted autoplay></video>
+  <canvas id="frame" hidden></canvas>
   <div class="veil">
     <div class="finder" id="finder"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
     <p class="hint">QRコードを わくに あわせてね</p>
@@ -174,6 +175,10 @@ body[data-view="error"] #error{display:flex}
   <p id="errBody"></p>
   <button class="retry" id="retryBtn">もういちど ためす</button>
 </section>
+
+<!-- Safari/iOS でも動くQR読み取り（BarcodeDetector非対応の端末用フォールバック）。
+     スキャナーは元々ネット接続前提（GitHub Pages）なので外部読み込みで問題なし。 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -202,7 +207,8 @@ var DESTS = {
 var $=function(id){return document.getElementById(id);};
 
 /* ── 状態 ── */
-var audioCtx=null, detector=null, stream=null, scanning=false;
+var audioCtx=null, detector=null, stream=null, scanning=false, mode="";
+var canvas=null, cctx=null;
 var shownValue="", count=0, rafId=null;
 
 /* ══ 音：Web Audioで空港チャイム（ピンポーン）を合成 ══════
@@ -292,22 +298,43 @@ function clearResult(){
   shownValue="";
 }
 
+/* ══ 1フレームからQRを読む（方式は mode で切替） ══════════
+   mode="native" … BarcodeDetector（Chrome等・高速）
+   mode="jsqr"   … jsQR（Safari/iOS含む全ブラウザ・canvas経由） */
+function onValue(val){
+  /* 今表示中のものと違うQRが来たときだけ、鳴らして差し替える。
+     同じ券をかざし続けても二度鳴りしない。 */
+  if(val && val!==shownValue){
+    shownValue=val;
+    handleHit(val);
+  }
+}
+function scanNative(v){
+  detector.detect(v).then(function(codes){
+    if(codes && codes.length) onValue(codes[0].rawValue||"");
+  }).catch(function(){/* 1フレームの失敗は無視 */});
+}
+function scanJsQR(v){
+  var w=v.videoWidth, h=v.videoHeight;
+  if(!w||!h) return;
+  /* 負荷を抑えるため長辺640pxに縮小してから読む */
+  var scale=Math.min(1, 640/Math.max(w,h));
+  var cw=Math.round(w*scale), ch=Math.round(h*scale);
+  if(canvas.width!==cw){ canvas.width=cw; canvas.height=ch; }
+  cctx.drawImage(v,0,0,cw,ch);
+  var img;
+  try{ img=cctx.getImageData(0,0,cw,ch); }catch(e){ return; }
+  var code=window.jsQR ? window.jsQR(img.data, cw, ch, {inversionAttempts:"dontInvert"}) : null;
+  if(code && code.data) onValue(code.data);
+}
+
 /* ══ 検知ループ ══════════════════════════════════════ */
 function loop(){
   if(!scanning) return;
   var v=$("video");
-  if(detector && v.readyState>=2 && v.videoWidth>0){
-    detector.detect(v).then(function(codes){
-      if(codes && codes.length){
-        var val=codes[0].rawValue||"";
-        /* 今表示中のものと違うQRが来たときだけ、鳴らして差し替える。
-           同じ券をかざし続けても二度鳴りしない。 */
-        if(val && val!==shownValue){
-          shownValue=val;
-          handleHit(val);
-        }
-      }
-    }).catch(function(){/* 1フレームの失敗は無視 */});
+  if(v.readyState>=2 && v.videoWidth>0){
+    if(mode==="native") scanNative(v);
+    else                scanJsQR(v);
   }
   rafId=requestAnimationFrame(loop);
 }
@@ -329,19 +356,27 @@ function start(){
       "GitHub Pages など https のURLから ひらいてください（ファイルを ダブルクリックして ひらいた場合は うごきません）。");
     return;
   }
-  if(!("BarcodeDetector" in window)){
-    showError("この ブラウザは 未対応です",
-      "QRの じどう読み取りには <b>Chrome</b>（Android／パソコン）や <b>iOS 17以上のSafariかChrome</b> が ひつようです。<br>"+
-      "ブースの タブレットや ノートPCの Chrome で ひらくのが かくじつです。");
+  /* 読み取り方式の決定：BarcodeDetectorがあれば高速なnative、
+     無ければ（Safari/iOS等）jsQRにフォールバック */
+  if("BarcodeDetector" in window){
+    try{ detector=new window.BarcodeDetector({formats:["qr_code"]}); }
+    catch(e){ detector=new window.BarcodeDetector(); }
+    mode="native";
+  }else if(window.jsQR){
+    mode="jsqr";
+    canvas=$("frame");
+    cctx=canvas.getContext("2d",{willReadFrequently:true});
+  }else{
+    showError("QRライブラリを 読み込めません",
+      "QR読み取り用の ファイルを 読み込めませんでした。<br>"+
+      "インターネットに つながっているか 確認して、もういちど ためしてください。");
     return;
   }
+
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     showError("カメラを つかえません","この ブラウザは カメラに 対応していません。");
     return;
   }
-
-  try{ detector=new window.BarcodeDetector({formats:["qr_code"]}); }
-  catch(e){ detector=new window.BarcodeDetector(); }
 
   navigator.mediaDevices.getUserMedia({
     video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} },
