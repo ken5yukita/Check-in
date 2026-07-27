@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10161b">
+<title>チェックインカウンター｜海外事業部</title>
+<style>
+:root{
+  --board:#10161b;
+  --board-2:#1a232b;
+  --amber:#f0a73b;
+  --ink-soft:#8ea3b5;
+  --stamp:#b4372c;
+  --ok:#3fae6b;
+  --stock:#e9efe4;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"MS Gothic",monospace;
+  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--jp);background:var(--board);color:var(--amber);
+  min-height:100vh;-webkit-text-size-adjust:100%;
+  display:flex;flex-direction:column;
+}
+.wrap{max-width:44rem;margin:0 auto;width:100%;padding:0 clamp(1rem,4vw,2rem) 3rem}
+
+/* ── 案内板ヘッダー ── */
+header{
+  border-bottom:3px solid var(--amber);
+  padding:calc(1.6rem + env(safe-area-inset-top)) 0 1.6rem;margin-bottom:2rem;
+}
+.eyebrow{
+  font-family:var(--mono);color:var(--ink-soft);letter-spacing:.3em;
+  font-size:.62rem;display:flex;justify-content:space-between;margin-bottom:1rem;
+}
+.eyebrow b{color:var(--amber);font-weight:400}
+h1{color:#fff;font-size:clamp(1.6rem,7vw,2.6rem);font-weight:800;letter-spacing:.04em;line-height:1.2}
+h1 .plane{color:var(--amber);margin-right:.3em}
+.sub{color:var(--ink-soft);font-size:clamp(.82rem,3.4vw,1rem);margin-top:.6rem;line-height:1.7}
+
+/* ── カード ── */
+.cards{display:flex;flex-direction:column;gap:1rem}
+.card{
+  display:flex;align-items:center;gap:clamp(.9rem,3vw,1.4rem);
+  background:var(--board-2);border:1px solid #2a3540;border-radius:10px;
+  padding:clamp(1rem,3.5vw,1.5rem);text-decoration:none;color:inherit;
+  transition:transform .08s,border-color .08s,background .08s;
+}
+.card:hover{border-color:var(--amber)}
+.card:active{transform:translateY(2px)}
+.card:focus-visible{outline:3px solid var(--amber);outline-offset:3px}
+.ico{
+  flex-shrink:0;width:clamp(3rem,12vw,3.8rem);height:clamp(3rem,12vw,3.8rem);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(1.5rem,6vw,2rem);background:var(--board);border:1px solid #2a3540;
+}
+.body{flex:1;min-width:0}
+.body .step{font-family:var(--mono);color:var(--amber);font-size:.62rem;letter-spacing:.2em;margin-bottom:.25rem}
+.body .name{color:#fff;font-size:clamp(1.1rem,4.6vw,1.45rem);font-weight:800;line-height:1.25}
+.body .desc{color:var(--ink-soft);font-size:clamp(.76rem,3.2vw,.92rem);line-height:1.6;margin-top:.3rem}
+.body .dev{
+  display:inline-block;margin-top:.5rem;font-family:var(--mono);font-size:.62rem;
+  letter-spacing:.1em;color:var(--ink-soft);border:1px solid #2a3540;border-radius:20px;padding:.2em .8em;
+}
+.go{flex-shrink:0;color:var(--amber);font-size:1.6rem;opacity:.7}
+
+/* 受付カードだけ朱色で強調 */
+.card.primary{border-color:var(--stamp)}
+.card.primary .ico{border-color:var(--stamp);color:var(--stamp)}
+
+/* ── 補足 ── */
+.note{
+  margin-top:2rem;border-top:1px solid #2a3540;padding-top:1.2rem;
+  color:var(--ink-soft);font-size:.78rem;line-height:1.9;
+}
+.note b{color:var(--stock)}
+.foot{margin-top:1.4rem;font-family:var(--mono);color:#4a5a68;font-size:.6rem;letter-spacing:.18em}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow"><span>INTERNATIONAL DIVISION</span><b id="clock">--:--</b></p>
+    <h1><span class="plane">✈</span>チェックイン<br>カウンター</h1>
+    <p class="sub">ファミリーデー特設ブースの入口です。<br>つかう画面を えらんでください。</p>
+  </header>
+
+  <div class="cards">
+
+    <a class="card primary" href="./checkin-kiosk.html">
+      <div class="ico">🎫</div>
+      <div class="body">
+        <div class="step">STATION 1</div>
+        <div class="name">受付カウンター</div>
+        <div class="desc">名前を入力 → 行き先を選択 → 搭乗券QRをレシート印刷</div>
+        <span class="dev">受付のタッチパネルPC</span>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+    <a class="card" href="./checkin-scanner.html">
+      <div class="ico">📷</div>
+      <div class="body">
+        <div class="step">STATION 2</div>
+        <div class="name">読み取り機</div>
+        <div class="desc">券のQRをかざすと、自動でチャイムが鳴り行き先を表示</div>
+        <span class="dev">ゲートのタブレット（Chrome）</span>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+    <a class="card" href="./checkin-pass.html">
+      <div class="ico">📱</div>
+      <div class="body">
+        <div class="step">PREVIEW</div>
+        <div class="name">フライト情報ページ</div>
+        <div class="desc">保護者が券のQRを読むと開くページ。動作確認・下見用のプレビュー</div>
+        <span class="dev">スマホ（本番はQRから開く）</span>
+      </div>
+      <div class="go">›</div>
+    </a>
+
+  </div>
+
+  <p class="note">
+    <b>つかいかた：</b>この入口ページを ブックマークしておけば、当日は ここから タップで 各画面へ 移動できます。
+    3つのURLを 覚える必要は ありません。<br>
+    <b>読み取り機とフライト情報ページ</b>は、インターネット上（https）から ひらいてください。
+    <b>受付カウンター</b>は 会場のWi-Fiが 落ちても うごくよう、PCのローカルにも 置いておくと 安心です。
+  </p>
+
+  <p class="foot">FAMILY DAY &middot; BOARDING PASS EXPERIENCE</p>
+
+</div>
+
+<script>
+(function(){
+  function pad(n){return(n<10?"0":"")+n;}
+  function tick(){var d=new Date();document.getElementById("clock").textContent=pad(d.getHours())+":"+pad(d.getMinutes());}
+  tick(); setInterval(tick,10000);
+})();
+</script>
+</body>
+</html>
