@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTプリンター テスト｜海外事業部</title>
+<style>
+:root{
+  --board:#10161b; --board-2:#1a232b; --amber:#f0a73b; --ink-soft:#8ea3b5;
+  --stamp:#b4372c; --ok:#3fae6b; --stock:#e9efe4;
+  --mono:ui-monospace,Menlo,Consolas,"MS Gothic",monospace;
+  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--jp);background:var(--board);color:#e8eef4;min-height:100vh;line-height:1.6}
+.wrap{max-width:40rem;margin:0 auto;padding:1.5rem clamp(1rem,4vw,2rem) 4rem}
+header{border-bottom:2px solid var(--amber);padding-bottom:1rem;margin-bottom:1.5rem}
+.eyebrow{font-family:var(--mono);color:var(--ink-soft);letter-spacing:.24em;font-size:.62rem;margin-bottom:.6rem}
+h1{color:#fff;font-size:clamp(1.3rem,5vw,1.8rem);font-weight:800}
+.lead{color:var(--ink-soft);font-size:.9rem;margin-top:.6rem}
+
+.card{background:var(--board-2);border:1px solid #2a3540;border-radius:12px;padding:1.2rem;margin-bottom:1.2rem}
+.card h2{font-size:.95rem;color:var(--amber);font-family:var(--mono);letter-spacing:.1em;margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.num{background:var(--amber);color:var(--board);width:1.6em;height:1.6em;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0}
+
+label{display:block;font-size:.8rem;color:var(--ink-soft);margin:.6rem 0 .3rem}
+input[type=text]{width:100%;background:var(--board);border:1px solid #3c4a57;border-radius:8px;color:#fff;font-family:var(--jp);font-size:1.1rem;padding:.6em .8em}
+input[type=text]:focus{outline:2px solid var(--amber);border-color:var(--amber)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;width:100%;
+  border:0;border-radius:10px;font-family:var(--jp);font-weight:800;font-size:1.05rem;
+  padding:.9em 1em;cursor:pointer;margin-top:.4rem;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.btn:active{transform:translateY(2px);box-shadow:none}
+.btn.blue{background:#2d6cdf;color:#fff}
+.btn.red{background:var(--stamp);color:#fff}
+.btn.gray{background:#3a4653;color:#cfe}
+.btn[disabled]{opacity:.4;cursor:default;box-shadow:none}
+
+.status{display:flex;align-items:center;gap:.6rem;font-size:.9rem;margin-top:.4rem;padding:.6rem .8rem;border-radius:8px;background:var(--board)}
+.dot{width:.8em;height:.8em;border-radius:50%;background:#888;flex-shrink:0}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.err{background:var(--stamp)}
+.dot.wait{background:var(--amber);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+.preview{background:#fff;border-radius:8px;padding:1rem;display:flex;justify-content:center;margin-top:.8rem}
+.preview canvas{width:100%;max-width:280px;height:auto;image-rendering:pixelated;border:1px solid #ddd}
+
+.log{background:#05080a;border:1px solid #2a3540;border-radius:8px;padding:.8rem;font-family:var(--mono);
+  font-size:.72rem;line-height:1.7;color:#9fb4c7;max-height:15rem;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-top:.8rem}
+.log .t{color:#3fae6b}
+.log .e{color:#ff7a6b}
+.log .w{color:#f0a73b}
+
+.help{font-size:.8rem;color:var(--ink-soft);margin-top:.6rem}
+.help code{background:var(--board);color:var(--amber);padding:.1em .4em;border-radius:3px;font-family:var(--mono)}
+details{margin-top:.8rem}
+summary{cursor:pointer;color:var(--amber);font-size:.85rem}
+.warn-box{background:#3a2318;border:1px solid var(--stamp);border-radius:8px;padding:.8rem;font-size:.82rem;color:#ffcbb8;margin-top:.8rem}
+.warn-box[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">INTERNATIONAL DIVISION · PRINTER TEST</p>
+    <h1>Bluetoothプリンター テスト</h1>
+    <p class="lead">GOOJPRT <b>PT-210</b> に、ドライバー不要でChromeから直接印刷するテストです。<br>
+    <b>Windows/AndroidのChrome または Edge</b> で、<b>https のURL</b>から開いてください（Safari・iPhoneは非対応）。</p>
+  </header>
+
+  <div class="warn-box" id="unsupported" hidden>
+    ⚠ このブラウザは Web Bluetooth に対応していません。<b>Chrome または Edge</b>（Windows/Android/Mac）で、
+    <b>https</b> のURLから開いてください。iPhone・Safari では使えません。
+  </div>
+
+  <!-- 1. 接続 -->
+  <div class="card">
+    <h2><span class="num">1</span> プリンターに接続</h2>
+    <button class="btn blue" id="connectBtn">🔗 プリンターを さがして接続</button>
+    <div class="status"><span class="dot" id="connDot"></span><span id="connText">未接続</span></div>
+    <p class="help">ボタンを押すと、近くのBluetooth機器の一覧が出ます。<b>PT-210</b>（機種により <code>PT-210_xxxx</code> や <code>BlueTooth Printer</code> と表示）を選んでください。プリンターの電源を入れ、青ランプが点滅している状態で選びます。</p>
+  </div>
+
+  <!-- 2. 内容 -->
+  <div class="card">
+    <h2><span class="num">2</span> 印刷する内容</h2>
+    <label>なまえ（省略可）</label>
+    <input type="text" id="nameInput" placeholder="たろう" maxlength="8" value="たろう">
+    <label>QRに入れるURL/文字（テスト用）</label>
+    <input type="text" id="urlInput" value="https://ken5yukita.github.io/Check-in/checkin-pass.html#n=%E3%81%9F%E3%82%8D%E3%81%86&d=HAN&s=12A&f=OD%20108">
+    <button class="btn gray" id="previewBtn">🖼 プレビューを つくる</button>
+    <div class="preview"><canvas id="canvas"></canvas></div>
+    <p class="help">↑ これが実際に印刷される見た目です（白黒・58mm幅=384ドット想定）。</p>
+  </div>
+
+  <!-- 3. 印刷 -->
+  <div class="card">
+    <h2><span class="num">3</span> テスト印刷</h2>
+    <button class="btn red" id="printBtn" disabled>🖨 いま接続中のプリンターに印刷</button>
+    <div class="status"><span class="dot" id="printDot"></span><span id="printText">プリンター未接続</span></div>
+  </div>
+
+  <!-- ログ -->
+  <div class="card">
+    <h2><span class="num">i</span> ログ（うまくいかない時に確認）</h2>
+    <div class="log" id="log"></div>
+    <details>
+      <summary>設定：プリンターの幅・チューニング</summary>
+      <p class="help" style="margin-top:.6rem">
+        58mm幅プリンター=384ドット（初期値）。80mm幅なら576。読み取りにくい/紙が詰まる場合は、
+        コード内 <code>CONFIG</code> の <code>PRINTER_WIDTH</code>／<code>CHUNK</code>／<code>DELAY_MS</code> を調整してください。
+      </p>
+    </details>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ★ 調整用の設定
+   ═══════════════════════════════════════════════════════════ */
+var CONFIG = {
+  PRINTER_WIDTH : 384,   // 58mm=384ドット / 80mm=576ドット
+  QUIET         : 4,     // QRの周囲の余白（モジュール）
+  MAX_SCALE     : 10,    // QR1モジュールあたりの最大ドット
+  BAND          : 128,   // ラスターを縦に分割する行数（プリンタのバッファ対策）
+  CHUNK         : 180,   // 1回のBLE送信バイト数（不安定なら小さく: 100 など）
+  DELAY_MS      : 18,    // 送信ごとの待ち時間ms（詰まるなら大きく: 30 など）
+  FEED_LINES    : 4      // 印刷後の紙送り行数
+};
+
+/* GOOJPRT PT-210 向けの既知UUID（ISSC Transparent系）を先頭に。
+   PT-210: service 49535343-fe7d-... / 書込 characteristic 49535343-8841-43f4-a8d4-ecbe34729bb3
+   その下に、他機種でよくあるUUIDも列挙（acceptAllDevicesで拾うため）。 */
+var PT210_SERVICE = "49535343-fe7d-4ae5-8fa9-9fafd205e455";
+var PT210_WRITE   = "49535343-8841-43f4-a8d4-ecbe34729bb3";
+var KNOWN_SERVICES = [
+  PT210_SERVICE,
+  0x18F0, 0xFF00, 0xFFE0, 0xFFF0, 0xFEA0, 0xAE30, 0xFF12,
+  "000018f0-0000-1000-8000-00805f9b34fb",
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "6e400001-b5a3-f393-e0a9-e50e24dcca9e"    // Nordic UART（他機種用）
+];
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   TinyQR — 依存なしのQRコード生成器（バイトモード / 型番1-15）
+   オフラインで動かすため外部CDNは使わない。
+   ══════════════════════════════════════════════════════════════ */
+var TinyQR=(function(){"use strict";
+var EXP=new Uint8Array(512),LOG=new Uint8Array(256);
+(function(){var x=1;for(var i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11d;}for(i=255;i<512;i++)EXP[i]=EXP[i-255];})();
+function gmul(a,b){return(a===0||b===0)?0:EXP[LOG[a]+LOG[b]];}
+function genPoly(deg){var p=[1];for(var i=0;i<deg;i++){var n=new Array(p.length+1);for(var k=0;k<n.length;k++)n[k]=0;
+for(var j=0;j<p.length;j++){n[j]^=p[j];n[j+1]^=gmul(p[j],EXP[i]);}p=n;}return p;}
+function rsEC(data,ecLen){var gen=genPoly(ecLen),res=[],i,j;
+for(i=0;i<data.length+ecLen;i++)res[i]=i<data.length?data[i]:0;
+for(i=0;i<data.length;i++){var f=res[i];if(f)for(j=0;j<gen.length;j++)res[i+j]^=gmul(gen[j],f);}
+return res.slice(data.length);}
+var RS={
+L:[[7,1,19,0,0],[10,1,34,0,0],[15,1,55,0,0],[20,1,80,0,0],[26,1,108,0,0],[18,2,68,0,0],[20,2,78,0,0],[24,2,97,0,0],[30,2,116,0,0],[18,2,68,2,69],[20,4,81,0,0],[24,2,92,2,93],[26,4,107,0,0],[30,3,115,1,116],[22,5,87,1,88]],
+M:[[10,1,16,0,0],[16,1,28,0,0],[26,1,44,0,0],[18,2,32,0,0],[24,2,43,0,0],[16,4,27,0,0],[18,4,31,0,0],[22,2,38,2,39],[22,3,36,2,37],[26,4,43,1,44],[30,1,50,4,51],[22,6,36,2,37],[22,8,37,1,38],[24,4,40,5,41],[24,5,41,5,42]],
+Q:[[13,1,13,0,0],[22,1,22,0,0],[18,2,17,0,0],[26,2,24,0,0],[18,2,15,2,16],[24,4,19,0,0],[18,2,14,4,15],[22,4,18,2,19],[20,4,16,4,17],[24,6,19,2,20],[28,4,22,4,23],[26,4,20,6,21],[24,8,20,4,21],[20,11,16,5,17],[30,5,24,7,25]],
+H:[[17,1,9,0,0],[28,1,16,0,0],[22,2,13,0,0],[16,4,9,0,0],[22,2,11,2,12],[28,4,15,0,0],[26,4,13,1,14],[26,4,14,2,15],[24,4,12,4,13],[28,6,15,2,16],[24,3,12,8,13],[28,7,14,4,15],[22,12,11,4,12],[24,11,12,5,13],[24,11,12,7,13]]};
+var ALIGN=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70]];
+var VERINFO=[0x07c94,0x085bc,0x09a99,0x0a4d3,0x0bbf6,0x0c762,0x0d847,0x0e60d,0x0f928];
+var ECBITS={L:1,M:0,Q:3,H:2};
+function utf8Bytes(str){var out=[],i,c;for(i=0;i<str.length;i++){c=str.codePointAt(i);if(c>0xffff)i++;
+if(c<0x80)out.push(c);else if(c<0x800)out.push(0xc0|(c>>6),0x80|(c&63));
+else if(c<0x10000)out.push(0xe0|(c>>12),0x80|((c>>6)&63),0x80|(c&63));
+else out.push(0xf0|(c>>18),0x80|((c>>12)&63),0x80|((c>>6)&63),0x80|(c&63));}return out;}
+function totalDC(v,ec){var s=RS[ec][v-1];return s[1]*s[2]+s[3]*s[4];}
+function pickVersion(len,ec){for(var v=1;v<=15;v++){var cc=v<10?8:16;
+if(totalDC(v,ec)*8>=4+cc+len*8)return v;}throw new Error("データが長すぎます");}
+function buildCW(bytes,v,ec){var bits=[],i;
+function push(val,n){for(var k=n-1;k>=0;k--)bits.push((val>>k)&1);}
+push(4,4);push(bytes.length,v<10?8:16);
+for(i=0;i<bytes.length;i++)push(bytes[i],8);
+var cap=totalDC(v,ec)*8;
+for(i=0;i<4&&bits.length<cap;i++)bits.push(0);
+while(bits.length%8)bits.push(0);
+var pads=[0xec,0x11],p=0;while(bits.length<cap)push(pads[p++%2],8);
+var dcw=[];for(i=0;i<bits.length;i+=8){var b=0;for(var j=0;j<8;j++)b=(b<<1)|bits[i+j];dcw.push(b);}
+var s=RS[ec][v-1],ecLen=s[0],blocks=[],pos=0,n;
+for(n=0;n<s[1];n++){blocks.push(dcw.slice(pos,pos+s[2]));pos+=s[2];}
+for(n=0;n<s[3];n++){blocks.push(dcw.slice(pos,pos+s[4]));pos+=s[4];}
+var ecb=blocks.map(function(b){return rsEC(b,ecLen);});
+var out=[],mx=Math.max(s[2],s[4]);
+for(i=0;i<mx;i++)for(n=0;n<blocks.length;n++)if(i<blocks[n].length)out.push(blocks[n][i]);
+for(i=0;i<ecLen;i++)for(n=0;n<ecb.length;n++)out.push(ecb[n][i]);
+return out;}
+function makeMatrix(v){var size=v*4+17,m=[],res=[],r,i,j;
+for(r=0;r<size;r++){m.push(new Array(size).fill(0));res.push(new Array(size).fill(false));}
+function finder(rr,cc){for(var i=-1;i<=7;i++)for(var j=-1;j<=7;j++){var y=rr+i,x=cc+j;
+if(y<0||y>=size||x<0||x>=size)continue;
+var on=(i>=0&&i<=6&&(j===0||j===6))||(j>=0&&j<=6&&(i===0||i===6))||(i>=2&&i<=4&&j>=2&&j<=4);
+m[y][x]=on?1:0;res[y][x]=true;}}
+finder(0,0);finder(0,size-7);finder(size-7,0);
+for(i=8;i<size-8;i++){var t=i%2===0?1:0;m[6][i]=t;res[6][i]=true;m[i][6]=t;res[i][6]=true;}
+var ap=ALIGN[v-1];
+for(var a=0;a<ap.length;a++)for(var b=0;b<ap.length;b++){var ry=ap[a],rx=ap[b];
+if((ry<8&&rx<8)||(ry<8&&rx>size-9)||(ry>size-9&&rx<8))continue;
+for(i=-2;i<=2;i++)for(j=-2;j<=2;j++){
+m[ry+i][rx+j]=(Math.abs(i)===2||Math.abs(j)===2||(i===0&&j===0))?1:0;res[ry+i][rx+j]=true;}}
+m[size-8][8]=1;res[size-8][8]=true;
+for(i=0;i<9;i++){if(!res[8][i]){res[8][i]=true;m[8][i]=0;}if(!res[i][8]){res[i][8]=true;m[i][8]=0;}}
+for(i=0;i<8;i++){if(!res[8][size-1-i]){res[8][size-1-i]=true;m[8][size-1-i]=0;}
+if(!res[size-1-i][8]){res[size-1-i][8]=true;m[size-1-i][8]=0;}}
+if(v>=7){var vi=VERINFO[v-7];for(i=0;i<18;i++){var bit=(vi>>i)&1,rr=Math.floor(i/3),cc=i%3;
+m[size-11+cc][rr]=bit;res[size-11+cc][rr]=true;m[rr][size-11+cc]=bit;res[rr][size-11+cc]=true;}}
+return{m:m,res:res,size:size};}
+function placeData(mat,cw){var size=mat.size,m=mat.m,res=mat.res,bi=0,total=cw.length*8;
+function bitAt(i){return i<total?(cw[i>>3]>>(7-(i&7)))&1:0;}
+var up=true;
+for(var col=size-1;col>0;col-=2){if(col===6)col--;
+for(var i=0;i<size;i++){var row=up?size-1-i:i;
+for(var k=0;k<2;k++){var c=col-k;if(!res[row][c])m[row][c]=bitAt(bi++);}}
+up=!up;}}
+var MASKS=[function(r,c){return(r+c)%2===0;},function(r){return r%2===0;},function(r,c){return c%3===0;},
+function(r,c){return(r+c)%3===0;},function(r,c){return(Math.floor(r/2)+Math.floor(c/3))%2===0;},
+function(r,c){return(r*c)%2+(r*c)%3===0;},function(r,c){return((r*c)%2+(r*c)%3)%2===0;},
+function(r,c){return((r+c)%2+(r*c)%3)%2===0;}];
+function formatBits(ec,mask){var d=(ECBITS[ec]<<3)|mask,v=d<<10;
+for(var i=14;i>=10;i--)if((v>>i)&1)v^=0x537<<(i-10);
+return((d<<10)|v)^0x5412;}
+function applyFormat(mat,ec,mask){var f=formatBits(ec,mask),size=mat.size,m=mat.m,i;
+for(i=0;i<=5;i++)m[8][i]=(f>>i)&1;
+m[8][7]=(f>>6)&1;m[8][8]=(f>>7)&1;m[7][8]=(f>>8)&1;
+for(i=9;i<=14;i++)m[14-i][8]=(f>>i)&1;
+for(i=0;i<=7;i++)m[size-1-i][8]=(f>>i)&1;
+for(i=8;i<=14;i++)m[8][size-15+i]=(f>>i)&1;
+m[size-8][8]=1;}
+function penalty(m,size){var p=0,r,c,run,dark=0;
+for(r=0;r<size;r++){run=1;for(c=1;c<size;c++){if(m[r][c]===m[r][c-1]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+for(c=0;c<size;c++){run=1;for(r=1;r<size;r++){if(m[r][c]===m[r-1][c]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+for(r=0;r<size-1;r++)for(c=0;c<size-1;c++){var s=m[r][c]+m[r][c+1]+m[r+1][c]+m[r+1][c+1];if(s===0||s===4)p+=3;}
+var p1=[1,0,1,1,1,0,1,0,0,0,0],p2=[0,0,0,0,1,0,1,1,1,0,1];
+function match(get,len){var cnt=0;for(var s=0;s+11<=len;s++){var o1=true,o2=true;
+for(var k=0;k<11;k++){var vv=get(s+k);if(vv!==p1[k])o1=false;if(vv!==p2[k])o2=false;}
+if(o1)cnt++;if(o2)cnt++;}return cnt;}
+for(r=0;r<size;r++)p+=40*match(function(i){return m[r][i];},size);
+for(c=0;c<size;c++)p+=40*match(function(i){return m[i][c];},size);
+for(r=0;r<size;r++)for(c=0;c<size;c++)dark+=m[r][c];
+p+=10*Math.floor(Math.abs(dark*100/(size*size)-50)/5);
+return p;}
+function encode(text,ec){ec=ec||"M";
+var bytes=utf8Bytes(text),v=pickVersion(bytes.length,ec),cw=buildCW(bytes,v,ec);
+var base=makeMatrix(v);placeData(base,cw);
+var best=null,bs=Infinity;
+for(var mask=0;mask<8;mask++){
+var m=base.m.map(function(row){return row.slice();});
+for(var r=0;r<base.size;r++)for(var c=0;c<base.size;c++)
+if(!base.res[r][c]&&MASKS[mask](r,c))m[r][c]^=1;
+var cand={m:m,res:base.res,size:base.size};
+applyFormat(cand,ec,mask);
+var s=penalty(m,base.size);
+if(s<bs){bs=s;best=cand;}}
+return{modules:best.m,size:best.size,version:v};}
+function toSVG(text,opts){opts=opts||{};
+var q=opts.quiet==null?4:opts.quiet,r=encode(text,opts.ec||"M");
+var n=r.size,dim=n+q*2,d="";
+for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(r.modules[y][x])d+="M"+(x+q)+" "+(y+q)+"h1v1h-1z";
+return'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+dim+' '+dim+
+'" shape-rendering="crispEdges" role="img" aria-label="QRコード">'+
+'<rect width="'+dim+'" height="'+dim+'" fill="#ffffff"/>'+
+'<path d="'+d+'" fill="#000000"/></svg>';}
+return{encode:encode,toSVG:toSVG};})();
+</script>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id);};
+var device=null, server=null, writeChar=null;
+
+/* ── ログ ── */
+function log(msg, cls){
+  var el=$("log"), line=document.createElement("div");
+  if(cls) line.className=cls;
+  var d=new Date();
+  var ts=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
+  line.textContent="["+ts+"] "+msg;
+  el.appendChild(line); el.scrollTop=el.scrollHeight;
+}
+
+/* ── 対応チェック ── */
+if(!navigator.bluetooth){
+  $("unsupported").hidden=false;
+  $("connectBtn").disabled=true;
+  log("navigator.bluetooth がありません（このブラウザは非対応）", "e");
+}else{
+  log("Web Bluetooth 利用可能。プリンターの電源を入れて『接続』を押してください。", "t");
+}
+
+/* ══ QR＋名前を canvas に描く（印刷される見た目そのもの） ══ */
+function buildCanvas(name, qrText){
+  var pw=CONFIG.PRINTER_WIDTH;
+  var qr=TinyQR.encode(qrText||" ", "M");
+  var n=qr.size, quiet=CONFIG.QUIET, unit=n+quiet*2;
+  var scale=Math.max(2, Math.min(CONFIG.MAX_SCALE, Math.floor(pw/unit)));
+  var qrPix=unit*scale;
+
+  var padTop=16, nameH = name ? 56 : 0, gap = name?12:0, capH=40, padBot=16;
+  var h = padTop + nameH + gap + qrPix + capH + padBot;
+
+  var cv=$("canvas"); cv.width=pw; cv.height=h;
+  var ctx=cv.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,pw,h);
+  ctx.fillStyle="#000"; ctx.textAlign="center";
+
+  var y=padTop;
+  if(name){
+    ctx.font="800 40px "+"'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif";
+    ctx.textBaseline="top";
+    ctx.fillText(name+" さん", pw/2, y);
+    y += nameH + gap;
+  }
+  /* QR（中央寄せ） */
+  var offX=Math.floor((pw-qrPix)/2);
+  for(var my=0;my<n;my++)for(var mx=0;mx<n;mx++){
+    if(!qr.modules[my][mx]) continue;
+    ctx.fillRect(offX+(mx+quiet)*scale, y+(my+quiet)*scale, scale, scale);
+  }
+  y += qrPix;
+  /* キャプション */
+  ctx.font="600 22px "+"'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif";
+  ctx.fillText("おうちの人と よみとってね", pw/2, y+6);
+
+  return {canvas:cv, width:pw, height:h, scale:scale, qrSize:n};
+}
+
+/* ══ canvas → ESC/POS ラスター（GS v 0） ══ */
+function canvasToEscpos(cv){
+  var ctx=cv.getContext("2d"), w=cv.width, h=cv.height;
+  var img=ctx.getImageData(0,0,w,h).data;
+  var widthBytes=Math.ceil(w/8);
+  var bytes=[];
+  bytes.push(0x1B,0x40);        // ESC @ 初期化
+  bytes.push(0x1B,0x61,0x01);   // ESC a 1 中央寄せ
+  for(var y0=0;y0<h;y0+=CONFIG.BAND){
+    var rows=Math.min(CONFIG.BAND, h-y0);
+    bytes.push(0x1D,0x76,0x30,0x00,
+               widthBytes&0xFF,(widthBytes>>8)&0xFF,
+               rows&0xFF,(rows>>8)&0xFF);
+    for(var y=0;y<rows;y++){
+      for(var xb=0;xb<widthBytes;xb++){
+        var b=0;
+        for(var bit=0;bit<8;bit++){
+          var x=xb*8+bit;
+          if(x<w){
+            var idx=((y0+y)*w+x)*4;
+            /* 輝度がしきい値より暗ければ黒ドット */
+            var lum=img[idx]*0.299+img[idx+1]*0.587+img[idx+2]*0.114;
+            if(lum<128) b|=(0x80>>bit);
+          }
+        }
+        bytes.push(b);
+      }
+    }
+  }
+  for(var f=0;f<CONFIG.FEED_LINES;f++) bytes.push(0x0A);
+  return new Uint8Array(bytes);
+}
+
+/* ══ 接続 ══ */
+$("connectBtn").addEventListener("click", async function(){
+  if(!navigator.bluetooth) return;
+  setConn("wait","プリンターを さがしています…");
+  try{
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices:true,
+      optionalServices: KNOWN_SERVICES
+    });
+    log("選択: "+(device.name||"(名前なし)")+"  id="+device.id, "t");
+    device.addEventListener("gattserverdisconnected", function(){
+      setConn("err","切断されました");
+      $("printBtn").disabled=true; setPrint("","プリンター未接続");
+      writeChar=null;
+    });
+
+    setConn("wait","接続中…");
+    server = await device.gatt.connect();
+    log("GATT接続 成功。サービスを調べています…", "t");
+
+    var services = await server.getPrimaryServices();
+    log("サービス数: "+services.length);
+    writeChar=null;
+    var preferred=null;    // PT-210の既知書込口
+    var fallback=null;     // それ以外で最初に見つかった書込可能char
+    for(var i=0;i<services.length;i++){
+      var chars = await services[i].getCharacteristics();
+      log("  サービス "+services[i].uuid);
+      for(var j=0;j<chars.length;j++){
+        var c=chars[j], p=c.properties;
+        var flags=[p.write?"write":"", p.writeWithoutResponse?"writeNR":"", p.notify?"notify":""].filter(Boolean).join(",");
+        log("    ・char "+c.uuid+" ["+flags+"]");
+        var writable = p.write || p.writeWithoutResponse;
+        if(writable && c.uuid.toLowerCase()===PT210_WRITE) preferred=c;         // PT-210一致
+        if(writable && !fallback) fallback=c;
+      }
+    }
+    writeChar = preferred || fallback;
+    if(writeChar){
+      setConn("on","接続OK: "+(device.name||"プリンター"));
+      log("書き込み先: "+writeChar.uuid + (preferred?"（PT-210の既知口）":"（自動選択）"), "t");
+      $("printBtn").disabled=false; setPrint("on","印刷できます");
+    }else{
+      setConn("err","書き込み口が見つかりません");
+      log("書き込み可能なcharacteristicが見つかりませんでした。上のサービス一覧を教えてください。", "e");
+    }
+  }catch(e){
+    if(e && e.name==="NotFoundError"){ setConn("","キャンセルしました"); log("機器選択をキャンセル", "w"); }
+    else{ setConn("err","接続に失敗"); log("接続エラー: "+(e&&e.message||e), "e"); }
+  }
+});
+
+/* ══ プレビュー ══ */
+$("previewBtn").addEventListener("click", function(){
+  try{
+    var info=buildCanvas($("nameInput").value.trim(), $("urlInput").value.trim());
+    log("プレビュー作成: QR型番サイズ"+info.qrSize+" scale"+info.scale+" 画像"+info.width+"x"+info.height, "t");
+  }catch(e){ log("プレビュー失敗: "+(e&&e.message||e), "e"); }
+});
+
+/* ══ 印刷 ══ */
+$("printBtn").addEventListener("click", async function(){
+  if(!writeChar){ log("プリンター未接続", "e"); return; }
+  setPrint("wait","印刷データを作成中…");
+  try{
+    var info=buildCanvas($("nameInput").value.trim(), $("urlInput").value.trim());
+    var payload=canvasToEscpos(info.canvas);
+    log("送信データ: "+payload.length+" バイト（"+info.width+"x"+info.height+"）");
+
+    var useNR = writeChar.properties.writeWithoutResponse;
+    var sent=0;
+    for(var off=0; off<payload.length; off+=CONFIG.CHUNK){
+      var chunk=payload.subarray(off, Math.min(off+CONFIG.CHUNK, payload.length));
+      if(useNR && writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(chunk);
+      else await writeChar.writeValue(chunk);
+      sent+=chunk.length;
+      setPrint("wait","送信中… "+Math.round(sent/payload.length*100)+"%");
+      await sleep(CONFIG.DELAY_MS);
+    }
+    setPrint("on","印刷完了！");
+    log("印刷データ送信 完了（"+sent+" バイト）", "t");
+  }catch(e){
+    setPrint("err","印刷に失敗");
+    log("印刷エラー: "+(e&&e.message||e)+"  → CHUNKを小さく/DELAY_MSを大きくして再試行", "e");
+  }
+});
+
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function setConn(state,text){ var d=$("connDot"); d.className="dot"+(state?" "+state:""); $("connText").textContent=text; }
+function setPrint(state,text){ var d=$("printDot"); d.className="dot"+(state?" "+state:""); $("printText").textContent=text; }
+
+/* 初期プレビュー */
+try{ buildCanvas($("nameInput").value.trim(), $("urlInput").value.trim()); }catch(e){}
+})();
+</script>
+</body>
+</html>
