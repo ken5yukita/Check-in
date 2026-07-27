@@ -88,33 +88,91 @@ body[data-view="error"] #error{display:flex}
   border-radius:20px;font-family:var(--jp);font-size:.82rem;padding:.4em 1em;cursor:pointer;
 }
 
-/* ── 読み取り結果オーバーレイ（案内板が反転する演出） ── */
+/* ── 読み取り結果オーバーレイ（子供向けの明るい画面） ── */
 .result{
-  position:absolute;inset:0;z-index:6;display:none;
+  position:absolute;inset:0;z-index:6;display:none;cursor:pointer;
   flex-direction:column;align-items:center;justify-content:center;
-  background:rgba(16,22,27,.94);text-align:center;padding:2rem;gap:1rem;
-  animation:pop .25s ease-out;
+  text-align:center;padding:clamp(1rem,4vw,2rem);
+  /* 空港の朝焼けのような やわらかいグラデーション */
+  background:
+    radial-gradient(120% 90% at 50% 0%, #fff3d6 0%, #ffe1b0 32%, #ffd0e0 66%, #d9e8ff 100%);
+  animation:pop .32s cubic-bezier(.2,1.2,.35,1);
 }
 .result.show{display:flex}
-.result{cursor:pointer}
-.result .rdismiss{
-  position:absolute;left:0;right:0;bottom:calc(1.6rem + env(safe-area-inset-bottom));
-  font-family:var(--mono);color:var(--ink-soft);letter-spacing:.1em;
-  font-size:clamp(.66rem,2.8vw,.85rem);
+@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+
+/* ふわっと立ち上がるカード */
+.rcard{
+  background:#fff;border-radius:26px;
+  padding:clamp(1.2rem,4.5vw,2.4rem) clamp(1.2rem,5vw,2.6rem);
+  box-shadow:0 18px 50px rgba(180,120,60,.28);
+  max-width:min(92vw,640px);width:100%;
+  display:flex;flex-direction:column;align-items:center;gap:clamp(.5rem,1.6vh,1rem);
+  animation:rise .42s cubic-bezier(.2,1.3,.35,1) both;
 }
-@keyframes pop{from{opacity:0}to{opacity:1}}
-.result .badge{
-  font-family:var(--mono);color:var(--ok);letter-spacing:.24em;
-  font-size:clamp(.7rem,3vw,.9rem);border:1px solid var(--ok);
-  padding:.3em 1em;border-radius:3px;
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+
+.rflag{font-size:clamp(3.4rem,15vw,6rem);line-height:1;animation:wave 1.6s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+
+.rwelcome{
+  font-family:var(--jp);font-weight:800;color:var(--stamp);
+  font-size:clamp(1.1rem,4.4vw,1.7rem);letter-spacing:.06em;
 }
-.result .rname{font-size:clamp(2rem,11vw,3.6rem);font-weight:800;color:#fff;line-height:1.2}
-.result .rgreet{font-size:clamp(1.4rem,7vw,2.4rem);font-weight:800;color:var(--amber)}
-.result .rcity{font-family:var(--mono);color:var(--ink-soft);letter-spacing:.14em;font-size:clamp(.85rem,3.6vw,1.1rem)}
-.result .rmeta{font-family:var(--mono);color:var(--ink-soft);font-size:.8rem;letter-spacing:.1em;margin-top:.4rem}
-.result .plainval{
-  font-family:var(--mono);color:#fff;font-size:clamp(1rem,5vw,1.4rem);
+.rname{
+  font-family:var(--jp);font-weight:800;color:#243b55;line-height:1.15;
+  font-size:clamp(1.9rem,9vw,3.4rem);
+  animation:namepop .5s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes namepop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* 紙吹雪（券が読めたときだけ舞う） */
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.confetti i{
+  position:absolute;top:-8%;width:11px;height:16px;border-radius:2px;opacity:.95;
+  animation:fall linear forwards;
+}
+@keyframes fall{
+  0%{transform:translateY(-10vh) rotate(0);opacity:1}
+  100%{transform:translateY(112vh) rotate(720deg);opacity:1}
+}
+
+/* あいさつ＋日本語の意味 */
+.greetbox{
+  background:#fff7e6;border:2px dashed #f0a73b;border-radius:18px;
+  padding:clamp(.7rem,3vw,1.2rem) clamp(1rem,4vw,1.8rem);
+  width:100%;max-width:34rem;
+}
+.rgreet{
+  font-family:var(--jp);font-weight:800;color:#e08a1e;line-height:1.2;
+  font-size:clamp(1.6rem,7.5vw,2.8rem);
+}
+.rmean{
+  font-family:var(--jp);color:#7a5a2a;margin-top:.35em;
+  font-size:clamp(.95rem,4vw,1.35rem);font-weight:700;
+}
+.rmean::before{content:"＝ ";opacity:.7}
+.rmean::after{content:" って いういみ";font-weight:400;opacity:.75;font-size:.8em}
+
+.rcity{
+  font-family:var(--jp);color:#3a6ea5;font-weight:800;
+  font-size:clamp(1rem,4.6vw,1.5rem);
+}
+.rfun{
+  font-family:var(--jp);color:#5a6b7a;line-height:1.6;
+  font-size:clamp(.82rem,3.6vw,1.1rem);max-width:30rem;
+}
+.rfun::before{content:"💡 "}
+
+.plainval{
+  font-family:var(--mono);color:#243b55;font-size:clamp(.95rem,4.5vw,1.3rem);
   word-break:break-all;max-width:90%;line-height:1.5;
+}
+
+.result .rdismiss{
+  position:absolute;left:0;right:0;bottom:calc(1.4rem + env(safe-area-inset-bottom));
+  font-family:var(--jp);color:#a06a3a;letter-spacing:.06em;font-weight:700;
+  font-size:clamp(.72rem,3vw,.95rem);
 }
 
 /* ── エラー画面 ── */
@@ -124,6 +182,25 @@ body[data-view="error"] #error{display:flex}
 #error p{color:var(--ink-soft);line-height:1.9;max-width:24rem;font-size:.92rem}
 #error code{background:var(--board-2);color:var(--amber);padding:.1em .5em;border-radius:3px;font-family:var(--mono);font-size:.85em}
 .retry{background:transparent;border:2px solid var(--amber);color:var(--amber);border-radius:5px;font-family:var(--jp);font-weight:700;font-size:1rem;padding:.6em 1.6em;cursor:pointer}
+
+/* ── 横画面（テレビ等へ16:9で出すとき）：左に国旗・名前、右にあいさつ・意味 ── */
+@media (orientation:landscape) and (max-height:600px){
+  .rcard{
+    max-width:min(94vw,1040px);width:100%;
+    display:grid;grid-template-columns:auto 1fr;align-items:center;
+    gap:clamp(1rem,3vw,2.4rem);
+    padding:clamp(1rem,3vh,1.8rem) clamp(1.4rem,4vw,2.8rem);
+    border-radius:24px;text-align:left;
+  }
+  .rflag{grid-row:1/4;font-size:clamp(3.5rem,22vh,7rem)}
+  .rwelcome{grid-column:2;font-size:clamp(1.2rem,5vh,2rem);align-self:end}
+  .rname{grid-column:2;font-size:clamp(2rem,11vh,4rem);align-self:start}
+  .greetbox{grid-column:2;width:auto;align-self:start}
+  .rgreet{font-size:clamp(1.6rem,8vh,3rem)}
+  .rmean{font-size:clamp(1rem,4.5vh,1.6rem)}
+  .rcity{grid-column:2;font-size:clamp(1.1rem,5vh,1.8rem)}
+  .rfun{grid-column:2;font-size:clamp(.85rem,4vh,1.3rem);max-width:none}
+}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -142,7 +219,7 @@ body[data-view="error"] #error{display:flex}
   <div class="mark">🎫</div>
   <div>
     <h1>とうじょうけん<br>スキャナー</h1>
-    <p>ボタンを おすと カメラが ひらきます。<br>とうじょうけんの QRコードを わくに あわせると、<br>チャイムが なって いきさきが ひょうじされます。</p>
+    <p>ボタンを おすと カメラが ひらきます。<br>とうじょうけんの QRコードを わくに あわせると、<br>「ピッ」と おとが なって いきさきが ひょうじされます。</p>
   </div>
   <button class="start" id="startBtn">スキャンを はじめる</button>
 </section>
@@ -158,13 +235,20 @@ body[data-view="error"] #error{display:flex}
   <button class="stopbtn" id="stopBtn">とじる</button>
 
   <div class="result" id="result">
-    <span class="badge" id="rBadge">CHECKED IN</span>
-    <p class="rname" id="rName"></p>
-    <p class="rgreet" id="rGreet"></p>
-    <p class="rcity" id="rCity"></p>
-    <p class="rmeta" id="rMeta"></p>
-    <p class="plainval" id="rPlain"></p>
-    <p class="rdismiss">つぎの人を よみとるか、ここを タップで けせます</p>
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+    <div class="rcard" id="rCard">
+      <div class="rflag" id="rFlag">🎫</div>
+      <div class="rwelcome" id="rWelcome">ようこそ！</div>
+      <div class="rname" id="rName"></div>
+      <div class="greetbox" id="rGreetBox">
+        <div class="rgreet" id="rGreet"></div>
+        <div class="rmean" id="rMean"></div>
+      </div>
+      <div class="rcity" id="rCity"></div>
+      <div class="rfun" id="rFun"></div>
+      <div class="plainval" id="rPlain"></div>
+    </div>
+    <p class="rdismiss">つぎの人を よみとるか、画面を タップで けせます</p>
   </div>
 </section>
 
@@ -189,15 +273,15 @@ var CONFIG = {
   /* 結果は、次の人のQRを読むか、画面を1回タップして消すまで表示し続けます */
 };
 
-/* pass.html と同じ行き先データ */
+/* 行き先データ。word=現地のあいさつ、mean=その日本語の意味、flag=国旗、fun=ひとこと */
 var DESTS = {
-  HAN:{city:"ハノイ",           country:"ベトナム",     word:"シン チャオ"},
-  PNH:{city:"プノンペン",       country:"カンボジア",   word:"スオスダイ"},
-  CGK:{city:"ジャカルタ",       country:"インドネシア", word:"スラマッ シアン"},
-  MNL:{city:"マニラ",           country:"フィリピン",   word:"クムスタ"},
-  BKK:{city:"バンコク",         country:"タイ",         word:"サワッディー"},
-  KUL:{city:"クアラルンプール", country:"マレーシア",   word:"スラマッ パギ"},
-  VTE:{city:"ビエンチャン",     country:"ラオス",       word:"サバイディー"}
+  HAN:{city:"ハノイ",           country:"ベトナム",     flag:"🇻🇳", word:"シン チャオ",       mean:"こんにちは",  fun:"おこめの めん「フォー」が おいしいよ"},
+  PNH:{city:"プノンペン",       country:"カンボジア",   flag:"🇰🇭", word:"スオスダイ",         mean:"こんにちは",  fun:"大きな せきぞうの おてら「アンコールワット」が あるよ"},
+  CGK:{city:"ジャカルタ",       country:"インドネシア", flag:"🇮🇩", word:"スラマッ シアン",   mean:"こんにちは",  fun:"しまが 1まん7せんも ある くにだよ"},
+  MNL:{city:"マニラ",           country:"フィリピン",   flag:"🇵🇭", word:"クムスタ",           mean:"げんき？",    fun:"カラフルな のりあいバス「ジープニー」が はしるよ"},
+  BKK:{city:"バンコク",         country:"タイ",         flag:"🇹🇭", word:"サワッディー",       mean:"こんにちは",  fun:"3りんの タクシー「トゥクトゥク」が ビュンビュン"},
+  KUL:{city:"クアラルンプール", country:"マレーシア",   flag:"🇲🇾", word:"スラマッ パギ",     mean:"おはよう",    fun:"そらの上で はしが つながる ツインタワーが あるよ"},
+  VTE:{city:"ビエンチャン",     country:"ラオス",       flag:"🇱🇦", word:"サバイディー",       mean:"こんにちは",  fun:"うみが ない くに。大きな メコンがわが ながれるよ"}
 };
 </script>
 
@@ -211,8 +295,9 @@ var audioCtx=null, detector=null, stream=null, scanning=false, mode="";
 var canvas=null, cctx=null;
 var shownValue="", count=0, rafId=null;
 
-/* ══ 音：Web Audioで空港チャイム（ピンポーン）を合成 ══════
-   外部の音声ファイルを使わないので、オフラインでも確実に鳴る。 */
+/* ══ 音：Web Audioで「ピッ」という短い確認音を合成 ══════
+   外部の音声ファイルを使わないので、オフラインでも確実に鳴る。
+   レジのスキャン音のような、みじかくて やさしい ピッ。 */
 function unlockAudio(){
   if(!audioCtx){
     var AC=window.AudioContext||window.webkitAudioContext;
@@ -222,23 +307,23 @@ function unlockAudio(){
 }
 function chime(){
   if(!audioCtx) return;
-  var now=audioCtx.currentTime;
-  /* 2音（高→低）の余韻のあるチャイム */
-  [[988,0],[784,0.28]].forEach(function(p){
-    var f=p[0], t=now+p[1];
-    var osc=audioCtx.createOscillator(), g=audioCtx.createGain();
-    osc.type="sine"; osc.frequency.value=f;
-    /* かすかに倍音を足して鉄琴っぽく */
-    var osc2=audioCtx.createOscillator(), g2=audioCtx.createGain();
-    osc2.type="sine"; osc2.frequency.value=f*2; g2.gain.value=0.12;
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.5,t+0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
-    osc.connect(g).connect(audioCtx.destination);
-    osc2.connect(g2).connect(g);
-    osc.start(t); osc2.start(t);
-    osc.stop(t+1.2); osc2.stop(t+1.2);
-  });
+  var t=audioCtx.currentTime;
+  /* メインの ピッ（澄んだ短い音） */
+  var osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+  osc.type="sine"; osc.frequency.value=2100;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.32,t+0.006);   /* すばやく立ち上げ */
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);  /* すっと消える */
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(t); osc.stop(t+0.16);
+  /* 1オクターブ上を かすかに足して「キラッ」とした質感に */
+  var osc2=audioCtx.createOscillator(), g2=audioCtx.createGain();
+  osc2.type="sine"; osc2.frequency.value=4200;
+  g2.gain.setValueAtTime(0.0001,t);
+  g2.gain.exponentialRampToValueAtTime(0.08,t+0.006);
+  g2.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+  osc2.connect(g2).connect(audioCtx.destination);
+  osc2.start(t); osc2.stop(t+0.12);
 }
 function announce(text){
   if(!CONFIG.ANNOUNCE_VOICE || !window.speechSynthesis) return;
@@ -262,7 +347,8 @@ function parseTicket(raw){
   });
   if(!o.n || !DESTS[o.d]) return null;
   var d=DESTS[o.d];
-  return {name:o.n, code:o.d, city:d.city, country:d.country, word:d.word, seat:o.s||'', flight:o.f||''};
+  return {name:o.n, code:o.d, city:d.city, country:d.country, flag:d.flag,
+          word:d.word, mean:d.mean, fun:d.fun, seat:o.s||'', flight:o.f||''};
 }
 
 /* ══ 検知時の演出 ══════════════════════════════════════ */
@@ -275,27 +361,60 @@ function handleHit(value){
 
   var r=$("result"), tk=parseTicket(value);
   if(tk){
-    $("rBadge").textContent="CHECKED IN";
-    $("rName").textContent=tk.name+" さん";
-    $("rGreet").textContent=tk.word;
-    $("rCity").textContent=tk.city+" ・ "+tk.country+"  ("+tk.code+")";
-    $("rMeta").textContent=[tk.flight&&("FLIGHT "+tk.flight), tk.seat&&("SEAT "+tk.seat)].filter(Boolean).join("   ");
-    $("rName").style.display=""; $("rGreet").style.display=""; $("rCity").style.display=""; $("rMeta").style.display="";
-    $("rPlain").style.display="none";
-    announce(tk.city+"ゆきへ ようこそ、"+tk.name+"さん。"+tk.word+"。");
+    $("rFlag").textContent    = tk.flag || "🎫";
+    $("rWelcome").textContent = "ようこそ！";
+    $("rName").textContent    = tk.name + " さん";
+    $("rGreet").textContent   = tk.word;
+    $("rMean").textContent    = tk.mean;
+    $("rCity").textContent    = tk.flag + " " + tk.city + "・" + tk.country + " ゆき";
+    $("rFun").textContent     = tk.fun || "";
+    /* 券用の項目を表示、QR素の値は隠す */
+    ["rWelcome","rName","rGreetBox","rCity"].forEach(function(id){ $(id).style.display=""; });
+    $("rFun").style.display = tk.fun ? "" : "none";
+    $("rPlain").style.display = "none";
+    announce(tk.city+"ゆきへ ようこそ、"+tk.name+"さん。"+tk.word+"。にほんごで、"+tk.mean+"。");
+    burstConfetti();
   }else{
     /* 搭乗券以外のQRでも、鳴らして中身は出す */
-    $("rBadge").textContent="QR";
-    $("rName").style.display="none"; $("rGreet").style.display="none"; $("rCity").style.display="none"; $("rMeta").style.display="none";
+    $("rFlag").textContent = "🔎";
+    ["rWelcome","rName","rGreetBox","rCity","rFun"].forEach(function(id){ $(id).style.display="none"; });
     $("rPlain").style.display=""; $("rPlain").textContent=value;
+    clearConfetti();
   }
   r.classList.add("show");   /* 次のQRを読むか、タップで消すまで表示し続ける */
+  /* カードの登場アニメを毎回 再生（別の券に差し替わったときも動く） */
+  var card=$("rCard");
+  card.style.animation="none"; void card.offsetWidth; card.style.animation="";
 }
 
 /* 結果を手動で消す（次の人を待つ状態に戻す） */
 function clearResult(){
   $("result").classList.remove("show");
+  clearConfetti();
   shownValue="";
+}
+
+/* ══ 紙吹雪 ══════════════════════════════════════════ */
+var CONFETTI_COLORS=["#f0a73b","#e0572c","#3aa76d","#3a6ea5","#e8b4c8","#f5d547"];
+function clearConfetti(){ var c=$("confetti"); if(c) c.innerHTML=""; }
+function burstConfetti(){
+  var c=$("confetti"); if(!c) return;
+  if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  c.innerHTML="";
+  var n=26;
+  for(var i=0;i<n;i++){
+    var p=document.createElement("i");
+    p.style.left=(Math.random()*100)+"%";
+    p.style.background=CONFETTI_COLORS[i%CONFETTI_COLORS.length];
+    p.style.animationDuration=(1.4+Math.random()*1.3)+"s";
+    p.style.animationDelay=(Math.random()*0.25)+"s";
+    p.style.transform="rotate("+(Math.random()*360)+"deg)";
+    if(i%2) p.style.borderRadius="50%";   /* 丸と四角を混ぜる */
+    c.appendChild(p);
+  }
+  /* 3秒後に片付け（表示は残す） */
+  clearTimeout(burstConfetti._t);
+  burstConfetti._t=setTimeout(clearConfetti, 3200);
 }
 
 /* ══ 1フレームからQRを読む（方式は mode で切替） ══════════
