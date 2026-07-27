@@ -307,23 +307,31 @@ function unlockAudio(){
 }
 function chime(){
   if(!audioCtx) return;
-  var t=audioCtx.currentTime;
-  /* メインの ピッ（澄んだ短い音） */
-  var osc=audioCtx.createOscillator(), g=audioCtx.createGain();
-  osc.type="sine"; osc.frequency.value=2100;
-  g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(0.32,t+0.006);   /* すばやく立ち上げ */
-  g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);  /* すっと消える */
-  osc.connect(g).connect(audioCtx.destination);
-  osc.start(t); osc.stop(t+0.16);
-  /* 1オクターブ上を かすかに足して「キラッ」とした質感に */
-  var osc2=audioCtx.createOscillator(), g2=audioCtx.createGain();
-  osc2.type="sine"; osc2.frequency.value=4200;
-  g2.gain.setValueAtTime(0.0001,t);
-  g2.gain.exponentialRampToValueAtTime(0.08,t+0.006);
-  g2.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
-  osc2.connect(g2).connect(audioCtx.destination);
-  osc2.start(t); osc2.stop(t+0.12);
+  var t0=audioCtx.currentTime;
+  /* 明るく上がる3音（ド・ミ・ソ）＝「タラリン♪」。最後の音は少し伸ばす。 */
+  function note(freq, start, dur, peak){
+    var t=t0+start;
+    /* 主音（triangleで明るく、かつ耳ざわりでない） */
+    var osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+    osc.type="triangle"; osc.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(peak,t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t); osc.stop(t+dur+0.02);
+    /* 1オクターブ上を かすかに足して キラッと */
+    var s=audioCtx.createOscillator(), sg=audioCtx.createGain();
+    s.type="sine"; s.frequency.value=freq*2;
+    sg.gain.setValueAtTime(0.0001,t);
+    sg.gain.exponentialRampToValueAtTime(peak*0.22,t+0.008);
+    sg.gain.exponentialRampToValueAtTime(0.0001,t+dur*0.8);
+    s.connect(sg).connect(audioCtx.destination);
+    s.start(t); s.stop(t+dur+0.02);
+  }
+  /* ド(C6)→ミ(E6)→ソ(G6)。最後のソを長めに響かせる */
+  note(1046.5, 0.00, 0.13, 0.30);
+  note(1318.5, 0.10, 0.13, 0.30);
+  note(1568.0, 0.20, 0.34, 0.34);
 }
 function announce(text){
   if(!CONFIG.ANNOUNCE_VOICE || !window.speechSynthesis) return;
