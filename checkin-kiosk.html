@@ -338,7 +338,8 @@ var CONFIG = {
   // 末尾に # は付けない。ここが未設定だとQRが正しく機能しません。
   PASS_URL: "https://ken5yukita.github.io/Check-in/checkin-pass.html",
 
-  CARRIER : "OD",                    // 便名の2レターコード（架空）
+  CARRIER : "ACOM",                  // 便名の先頭に付ける文字
+  FLIGHT_NO : "0806",                // 便番号（全員この便名に固定：ACOM 0806）
   FOOTER  : "INTERNATIONAL DIVISION",// 券の下端に出す文字
   MAX_LEN : 8,                       // 名前の最大文字数
   EC      : "M",                     // QRの誤り訂正 L/M/Q/H（小さくしたいなら "L"）
@@ -347,12 +348,13 @@ var CONFIG = {
 
 /* 行き先：海外事業部の担当マーケット */
 var DESTS = [
-  {code:"SGN", city:"ホーチミン",           country:"ベトナム"},
+  {code:"HAN", city:"ハノイ",           country:"ベトナム"},
   {code:"PNH", city:"プノンペン",       country:"カンボジア"},
   {code:"CGK", city:"ジャカルタ",       country:"インドネシア"},
   {code:"MNL", city:"マニラ",           country:"フィリピン"},
   {code:"BKK", city:"バンコク",         country:"タイ"},
   {code:"KUL", city:"クアラルンプール", country:"マレーシア"},
+  {code:"VTE", city:"ビエンチャン",     country:"ラオス"}
 ];
 </script>
 
@@ -590,7 +592,7 @@ function rand(n){return Math.floor(Math.random()*n);}
 function issue(){
   var d=state.dest;
   var seat  = (rand(30)+1) + "ABCDEF".charAt(rand(6));
-  var flight= CONFIG.CARRIER + " " + (100+rand(899));
+  var flight= CONFIG.CARRIER + " " + CONFIG.FLIGHT_NO;   /* 全員 ACOM 0806 に固定 */
   var gate  = (rand(60)+1);
   var now=new Date(), bt=new Date(now.getTime()+40*60000);
 
