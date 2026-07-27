@@ -623,7 +623,7 @@ function issue(){
   $("rcFoot").textContent = CONFIG.FOOTER + " \u00b7 FAMILY DAY";
 
   try{
-    var svg = TinyQR.toSVG(url,{ec:CONFIG.EC,quiet:2});
+    var svg = TinyQR.toSVG(url,{ec:CONFIG.EC,quiet:4});  /* 余白4=規格準拠。一般のカメラでも読める */
     $("qr").innerHTML   = svg;   /* 画面プレビュー用 */
     $("rcQr").innerHTML = svg;   /* 印刷レシート用   */
   }catch(e){
