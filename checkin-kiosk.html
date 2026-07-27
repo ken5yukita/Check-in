@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>チェックインカウンター｜海外事業部</title>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   1970年代の複写式航空券（淡緑の券紙＋濃紺のオフセット刷り）と
+   空港の反転フラップ式案内板を組み合わせた配色。
+   外部フォント・外部スクリプトは一切読み込まない（完全オフライン動作）。
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --stock:#e9efe4;      /* 券紙のミントグリーン */
+  --stock-2:#dbe4d3;    /* 半券側の一段濃い紙 */
+  --ink:#1b3a5c;        /* 濃紺の刷り色 */
+  --ink-soft:#5f7a95;
+  --stamp:#b4372c;      /* 朱色のスタンプ */
+  --board:#10161b;      /* 案内板の黒 */
+  --amber:#f0a73b;      /* 案内板の琥珀色 */
+  --rule:#b4c3a8;       /* 罫線 */
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"MS Gothic",monospace;
+  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--jp);
+  background:var(--board);
+  color:var(--ink);
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  overflow:hidden;
+}
+
+/* ── 上部：出発案内板ストリップ ───────────────────────── */
+.board{
+  background:var(--board);
+  color:var(--amber);
+  font-family:var(--mono);
+  display:flex;align-items:center;gap:1.2rem;
+  padding:.7rem clamp(1rem,3vw,2.5rem);
+  border-bottom:2px solid #2a3540;
+  letter-spacing:.14em;
+  font-size:clamp(.72rem,1.5vw,1rem);
+}
+.board .plane{font-size:1.4em;line-height:1}
+.board .div-name{color:#fff;letter-spacing:.28em;font-weight:700}
+.board .spacer{flex:1}
+.board .clock{font-variant-numeric:tabular-nums;font-size:1.25em;color:#fff}
+.board .stepnum{border:1px solid #3c4a57;padding:.15em .7em;border-radius:2px;color:#8ea3b5}
+.board .stepnum[data-on="1"]{background:var(--amber);color:var(--board);border-color:var(--amber)}
+
+/* ── 本体：券紙の上に置く ─────────────────────────────── */
+main{
+  height:calc(100% - 3.2rem);
+  background:
+    repeating-linear-gradient(90deg,transparent 0 3px,rgba(27,58,92,.025) 3px 4px),
+    var(--stock);
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.step{display:none;flex:1;flex-direction:column;padding:clamp(.8rem,2vh,1.6rem) clamp(1rem,3vw,2.5rem);gap:clamp(.6rem,1.6vh,1.2rem);min-height:0}
+body[data-step="1"] #s1,body[data-step="2"] #s2,body[data-step="3"] #s3{display:flex}
+
+.prompt{
+  font-size:clamp(1.3rem,3.4vh,2.2rem);font-weight:800;letter-spacing:.06em;
+  display:flex;align-items:baseline;gap:.8em;
+}
+.prompt .en{font-family:var(--mono);font-size:.44em;letter-spacing:.24em;color:var(--ink-soft);font-weight:400}
+
+/* ── 名前表示欄（券面の記入欄を模す） ─────────────────── */
+.namebox{
+  background:#fff;border:2px solid var(--ink);border-radius:3px;
+  padding:.5rem .9rem;display:flex;align-items:center;gap:.1em;
+  min-height:clamp(3.2rem,9vh,5rem);position:relative;
+}
+.namebox::before{
+  content:"PASSENGER NAME";position:absolute;top:-.62em;left:.8em;
+  background:#fff;padding:0 .4em;font-family:var(--mono);
+  font-size:clamp(.52rem,1.3vh,.68rem);letter-spacing:.2em;color:var(--ink-soft);
+}
+.cell{
+  font-size:clamp(1.6rem,6.5vh,3.4rem);font-weight:800;line-height:1.1;
+  min-width:1.05em;text-align:center;
+}
+.cell.ph{color:#c9d4c2}
+.caret{width:3px;height:clamp(1.6rem,6vh,3.2rem);background:var(--stamp);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ── 50音キーボード（案内板と同じ黒地・琥珀文字） ─────── */
+.kbd{
+  flex:1;min-height:0;display:grid;
+  grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(5,1fr);
+  gap:clamp(3px,.7vh,7px);
+}
+.key{
+  background:var(--board);color:var(--amber);border:0;border-radius:4px;
+  font-family:var(--jp);font-weight:700;
+  font-size:clamp(1.1rem,4.4vh,2.4rem);
+  cursor:pointer;transition:transform .06s,background .06s;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.45);
+}
+.key:active{transform:translateY(2px);background:#26313b;box-shadow:none}
+.key.blank{background:transparent;box-shadow:none;pointer-events:none}
+.key:focus-visible{outline:3px solid var(--stamp);outline-offset:2px}
+
+.tools{display:grid;grid-template-columns:repeat(6,1fr);gap:clamp(3px,.7vh,7px);height:clamp(3rem,8vh,4.6rem)}
+.tool{
+  background:#fff;color:var(--ink);border:2px solid var(--ink);border-radius:4px;
+  font-family:var(--jp);font-weight:800;font-size:clamp(.85rem,2.6vh,1.5rem);cursor:pointer;
+}
+.tool:active{background:var(--stock-2)}
+.tool.warn{border-color:var(--stamp);color:var(--stamp)}
+.tool:focus-visible{outline:3px solid var(--stamp);outline-offset:2px}
+
+/* ── 大きな進行ボタン ─────────────────────────────────── */
+.actions{display:flex;gap:.8rem;align-items:stretch}
+.go{
+  flex:1;background:var(--stamp);color:#fff;border:0;border-radius:4px;
+  font-family:var(--jp);font-weight:800;letter-spacing:.1em;
+  font-size:clamp(1.1rem,3.2vh,1.9rem);padding:.6em 1em;cursor:pointer;
+  box-shadow:inset 0 -4px 0 rgba(0,0,0,.28);
+}
+.go:active{transform:translateY(2px);box-shadow:none}
+.go[disabled]{background:#c3ceba;color:#8d9a85;box-shadow:none;cursor:default}
+.sub{
+  background:transparent;border:2px solid var(--ink-soft);color:var(--ink-soft);
+  border-radius:4px;font-family:var(--jp);font-weight:700;
+  font-size:clamp(.9rem,2.4vh,1.3rem);padding:.6em 1.4em;cursor:pointer;
+}
+.go:focus-visible,.sub:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+
+/* ── 行き先グリッド ───────────────────────────────────── */
+.dests{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:clamp(5px,1.2vh,12px)}
+.dest{
+  background:#fff;border:2px solid var(--ink);border-radius:4px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15em;
+  font-family:var(--jp);color:var(--ink);padding:.4em;text-align:center;
+}
+.dest:active{background:var(--stock-2);transform:translateY(2px)}
+.dest .code{font-family:var(--mono);font-weight:700;font-size:clamp(1.4rem,5vh,2.8rem);letter-spacing:.1em}
+.dest .city{font-weight:800;font-size:clamp(.85rem,2.4vh,1.35rem)}
+.dest .country{font-size:clamp(.68rem,1.7vh,.95rem);color:var(--ink-soft)}
+.dest:focus-visible{outline:3px solid var(--stamp);outline-offset:2px}
+
+/* ── 発券結果 ─────────────────────────────────────────── */
+.issued{flex:1;min-height:0;display:flex;gap:clamp(1rem,3vw,2.5rem);align-items:center;justify-content:center}
+.done-msg{text-align:center}
+.done-msg .big{font-size:clamp(1.4rem,4.4vh,2.6rem);font-weight:800;line-height:1.5}
+.done-msg .small{color:var(--ink-soft);font-size:clamp(.8rem,2vh,1.1rem);margin-top:.6em;line-height:1.7}
+
+/* ── 搭乗券（画面プレビュー兼 印刷対象） ───────────────── */
+.ticket{
+  width:clamp(230px,26vw,340px);background:var(--stock);
+  border:2px solid var(--ink);border-radius:3px;overflow:hidden;
+  font-family:var(--mono);color:var(--ink);flex-shrink:0;
+}
+.t-head{
+  background:var(--ink);color:var(--stock);padding:.45em .8em;
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:.72rem;letter-spacing:.18em;
+}
+.t-head b{font-size:1.15em;letter-spacing:.24em}
+.t-body{padding:.7em .8em .5em}
+.t-row{display:flex;gap:.8em;border-bottom:1px dashed var(--rule);padding:.42em 0}
+.t-row:last-child{border-bottom:0}
+.t-f{flex:1;min-width:0}
+.t-l{font-size:.5rem;letter-spacing:.16em;color:var(--ink-soft);display:block;margin-bottom:.15em}
+.t-v{font-size:1.02rem;font-weight:700;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-v.jp{font-family:var(--jp);font-size:1.15rem}
+.t-v.big{font-size:1.6rem;letter-spacing:.12em}
+.t-qr{padding:.4em .8em .7em;display:flex;gap:.7em;align-items:center}
+.t-qr svg{width:38%;height:auto;display:block;flex-shrink:0}
+.t-note{font-family:var(--jp);font-size:.58rem;line-height:1.65;color:var(--ink)}
+.t-foot{
+  border-top:2px dashed var(--ink);padding:.4em .8em;
+  font-size:.5rem;letter-spacing:.14em;color:var(--ink-soft);
+  display:flex;justify-content:space-between;background:var(--stock-2);
+}
+
+/* ── セットアップ警告バッジ ───────────────────────────── */
+.setup{
+  position:fixed;left:0;right:0;bottom:0;background:var(--stamp);color:#fff;
+  font-family:var(--jp);font-size:.8rem;padding:.5em 1em;text-align:center;z-index:9;
+}
+.setup[hidden]{display:none}
+
+/* ── レシート（画面では隠し、印刷時のみ表示） ─────────── */
+.receipt{display:none}
+.receipt .r-qr svg{width:100%;height:auto;display:block}
+
+/* ── 印刷：QRレシートだけを出す ───────────────────────── */
+@page{
+  /* 感熱レシートプリンタを想定。用紙幅に合わせて書き換え
+     ・58mm幅レシート → size:58mm auto  （初期値）
+     ・80mm幅レシート → size:80mm auto
+     ・ラベル(62mm)   → size:62mm auto  */
+  size:58mm auto;
+  margin:0;
+}
+@media print{
+  /* 画面用の要素をすべて消し、レシートだけを出す */
+  body{background:#fff;color:#000;overflow:visible;height:auto}
+  body > *{display:none!important}
+  main{display:block!important;height:auto;background:#fff}
+  .step, .step *{visibility:hidden}
+  body[data-step="3"] #s3{display:flex!important}
+  .issued{display:block!important}
+  .ticket{display:none!important}      /* 画面プレビュー用の券は印刷しない */
+  .prompt,.done-msg,.actions{display:none!important}
+
+  .receipt{
+    display:block!important;visibility:visible!important;
+    width:100%;padding:2mm 3mm 5mm;text-align:center;
+    font-family:var(--jp);color:#000;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .receipt *{visibility:visible!important}
+  .r-head{
+    font-family:var(--mono);letter-spacing:.24em;font-size:9pt;
+    border-bottom:1.5pt solid #000;padding-bottom:1.5mm;margin-bottom:2mm;
+  }
+  .r-name{font-size:15pt;font-weight:800;line-height:1.2;margin-bottom:1mm}
+  .r-route{font-family:var(--mono);font-size:12pt;font-weight:700;letter-spacing:.1em;margin-bottom:2.5mm}
+  .r-route .r-arrow{margin:0 1.5mm}
+  .r-qr{width:46mm;margin:0 auto 2mm}   /* QRの実寸。58mm用紙で最大級。読み取りやすさの要 */
+  .r-qr svg{width:100%;height:auto;shape-rendering:crispEdges}
+  .r-note{font-size:8pt;line-height:1.5;margin-bottom:2mm}
+  .r-foot{font-family:var(--mono);font-size:6pt;letter-spacing:.12em;border-top:1pt dashed #000;padding-top:1.5mm}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body data-step="1">
+
+<div class="board">
+  <span class="plane">✈</span>
+  <span class="div-name">INTERNATIONAL DIVISION</span>
+  <span class="stepnum" id="sn1" data-on="1">1 なまえ</span>
+  <span class="stepnum" id="sn2">2 いきさき</span>
+  <span class="stepnum" id="sn3">3 はっこう</span>
+  <span class="spacer"></span>
+  <span class="clock" id="clock">--:--</span>
+</div>
+
+<main>
+  <!-- ── STEP 1 ───────────────────────────────────────── -->
+  <section class="step" id="s1">
+    <h1 class="prompt">なまえを おしえてね<span class="en">PASSENGER NAME</span></h1>
+    <div class="namebox" id="namebox"></div>
+    <div class="kbd" id="kbd"></div>
+    <div class="tools">
+      <button class="tool" data-act="dakuten">゛ てんてん</button>
+      <button class="tool" data-act="handakuten">゜ まる</button>
+      <button class="tool" data-act="small">ちいさく</button>
+      <button class="tool" data-act="cho">ー のばす</button>
+      <button class="tool warn" data-act="back">← けす</button>
+      <button class="tool warn" data-act="clear">ぜんぶけす</button>
+    </div>
+    <div class="actions">
+      <button class="go" id="toStep2" disabled>つぎへ すすむ →</button>
+    </div>
+  </section>
+
+  <!-- ── STEP 2 ───────────────────────────────────────── -->
+  <section class="step" id="s2">
+    <h1 class="prompt">どこの くうこうへ いく？<span class="en">SELECT DESTINATION</span></h1>
+    <div class="dests" id="dests"></div>
+    <div class="actions">
+      <button class="sub" data-act="toStep1">← なまえに もどる</button>
+    </div>
+  </section>
+
+  <!-- ── STEP 3 ───────────────────────────────────────── -->
+  <section class="step" id="s3">
+    <div class="issued">
+      <div class="done-msg">
+        <p class="big">とうじょうけんが<br>できました！</p>
+        <p class="small">
+          おうちの人と いっしょに<br>QRコードを よみとってね<br>
+          <span id="autoreset"></span>
+        </p>
+      </div>
+      <div class="ticket" id="ticket">
+        <div class="t-head"><span>BOARDING PASS</span><b id="tCarrier">OD</b></div>
+        <div class="t-body">
+          <div class="t-row"><div class="t-f"><span class="t-l">PASSENGER / なまえ</span><span class="t-v jp" id="tName">-</span></div></div>
+          <div class="t-row">
+            <div class="t-f"><span class="t-l">FROM</span><span class="t-v big">HND</span></div>
+            <div class="t-f"><span class="t-l">TO</span><span class="t-v big" id="tCode">---</span></div>
+          </div>
+          <div class="t-row"><div class="t-f"><span class="t-l">DESTINATION / いきさき</span><span class="t-v jp" id="tCity">-</span></div></div>
+          <div class="t-row">
+            <div class="t-f"><span class="t-l">FLIGHT</span><span class="t-v" id="tFlight">-</span></div>
+            <div class="t-f"><span class="t-l">GATE</span><span class="t-v" id="tGate">-</span></div>
+            <div class="t-f"><span class="t-l">SEAT</span><span class="t-v" id="tSeat">-</span></div>
+          </div>
+          <div class="t-row">
+            <div class="t-f"><span class="t-l">DATE</span><span class="t-v" id="tDate">-</span></div>
+            <div class="t-f"><span class="t-l">BOARDING</span><span class="t-v" id="tTime">-</span></div>
+          </div>
+        </div>
+        <div class="t-qr">
+          <div id="qr"></div>
+          <p class="t-note">よみとると<br><b>フライトじょうほう</b>が<br>見られます</p>
+        </div>
+        <div class="t-foot"><span id="tFoot">INTERNATIONAL DIVISION</span><span>FAMILY DAY</span></div>
+      </div>
+    </div>
+
+    <!-- ── レシート印刷専用（画面では非表示・印刷時だけ出る） ── -->
+    <div class="receipt" id="receipt" aria-hidden="true">
+      <div class="r-head">BOARDING PASS</div>
+      <div class="r-name" id="rcName">-</div>
+      <div class="r-route"><span id="rcFrom">HND</span> <span class="r-arrow">&#9992;</span> <span id="rcTo">---</span></div>
+      <div class="r-qr" id="rcQr"></div>
+      <div class="r-note">おうちの人と いっしょに<br>よみとってね</div>
+      <div class="r-foot" id="rcFoot">INTERNATIONAL DIVISION &middot; FAMILY DAY</div>
+    </div>
+
+    <div class="actions">
+      <button class="go" data-act="print">🖨 いんさつ する</button>
+      <button class="sub" data-act="restart">さいしょから</button>
+    </div>
+  </section>
+</main>
+
+<div class="setup" id="setup" hidden></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ★ ここだけ書き換えてください
+   ═══════════════════════════════════════════════════════════ */
+var CONFIG = {
+  // pass.html を公開したURL（GitHub Pages / Netlify など）
+  // 末尾に # は付けない。ここが未設定だとQRが正しく機能しません。
+  PASS_URL: "https://example.github.io/checkin/pass.html",
+
+  CARRIER : "OD",                    // 便名の2レターコード（架空）
+  FOOTER  : "INTERNATIONAL DIVISION",// 券の下端に出す文字
+  MAX_LEN : 8,                       // 名前の最大文字数
+  EC      : "M",                     // QRの誤り訂正 L/M/Q/H（小さくしたいなら "L"）
+  IDLE_MS : 90000                    // 無操作で最初に戻るまで(ms)
+};
+
+/* 行き先：海外事業部の担当マーケット */
+var DESTS = [
+  {code:"HAN", city:"ハノイ",           country:"ベトナム"},
+  {code:"PNH", city:"プノンペン",       country:"カンボジア"},
+  {code:"CGK", city:"ジャカルタ",       country:"インドネシア"},
+  {code:"MNL", city:"マニラ",           country:"フィリピン"},
+  {code:"BKK", city:"バンコク",         country:"タイ"},
+  {code:"KUL", city:"クアラルンプール", country:"マレーシア"},
+  {code:"VTE", city:"ビエンチャン",     country:"ラオス"}
+];
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   TinyQR — 依存なしのQRコード生成器（バイトモード / 型番1-15）
+   オフラインで動かすため外部CDNは使わない。
+   ══════════════════════════════════════════════════════════════ */
+var TinyQR=(function(){"use strict";
+var EXP=new Uint8Array(512),LOG=new Uint8Array(256);
+(function(){var x=1;for(var i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11d;}for(i=255;i<512;i++)EXP[i]=EXP[i-255];})();
+function gmul(a,b){return(a===0||b===0)?0:EXP[LOG[a]+LOG[b]];}
+function genPoly(deg){var p=[1];for(var i=0;i<deg;i++){var n=new Array(p.length+1);for(var k=0;k<n.length;k++)n[k]=0;
+for(var j=0;j<p.length;j++){n[j]^=p[j];n[j+1]^=gmul(p[j],EXP[i]);}p=n;}return p;}
+function rsEC(data,ecLen){var gen=genPoly(ecLen),res=[],i,j;
+for(i=0;i<data.length+ecLen;i++)res[i]=i<data.length?data[i]:0;
+for(i=0;i<data.length;i++){var f=res[i];if(f)for(j=0;j<gen.length;j++)res[i+j]^=gmul(gen[j],f);}
+return res.slice(data.length);}
+var RS={
+L:[[7,1,19,0,0],[10,1,34,0,0],[15,1,55,0,0],[20,1,80,0,0],[26,1,108,0,0],[18,2,68,0,0],[20,2,78,0,0],[24,2,97,0,0],[30,2,116,0,0],[18,2,68,2,69],[20,4,81,0,0],[24,2,92,2,93],[26,4,107,0,0],[30,3,115,1,116],[22,5,87,1,88]],
+M:[[10,1,16,0,0],[16,1,28,0,0],[26,1,44,0,0],[18,2,32,0,0],[24,2,43,0,0],[16,4,27,0,0],[18,4,31,0,0],[22,2,38,2,39],[22,3,36,2,37],[26,4,43,1,44],[30,1,50,4,51],[22,6,36,2,37],[22,8,37,1,38],[24,4,40,5,41],[24,5,41,5,42]],
+Q:[[13,1,13,0,0],[22,1,22,0,0],[18,2,17,0,0],[26,2,24,0,0],[18,2,15,2,16],[24,4,19,0,0],[18,2,14,4,15],[22,4,18,2,19],[20,4,16,4,17],[24,6,19,2,20],[28,4,22,4,23],[26,4,20,6,21],[24,8,20,4,21],[20,11,16,5,17],[30,5,24,7,25]],
+H:[[17,1,9,0,0],[28,1,16,0,0],[22,2,13,0,0],[16,4,9,0,0],[22,2,11,2,12],[28,4,15,0,0],[26,4,13,1,14],[26,4,14,2,15],[24,4,12,4,13],[28,6,15,2,16],[24,3,12,8,13],[28,7,14,4,15],[22,12,11,4,12],[24,11,12,5,13],[24,11,12,7,13]]};
+var ALIGN=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70]];
+var VERINFO=[0x07c94,0x085bc,0x09a99,0x0a4d3,0x0bbf6,0x0c762,0x0d847,0x0e60d,0x0f928];
+var ECBITS={L:1,M:0,Q:3,H:2};
+function utf8Bytes(str){var out=[],i,c;for(i=0;i<str.length;i++){c=str.codePointAt(i);if(c>0xffff)i++;
+if(c<0x80)out.push(c);else if(c<0x800)out.push(0xc0|(c>>6),0x80|(c&63));
+else if(c<0x10000)out.push(0xe0|(c>>12),0x80|((c>>6)&63),0x80|(c&63));
+else out.push(0xf0|(c>>18),0x80|((c>>12)&63),0x80|((c>>6)&63),0x80|(c&63));}return out;}
+function totalDC(v,ec){var s=RS[ec][v-1];return s[1]*s[2]+s[3]*s[4];}
+function pickVersion(len,ec){for(var v=1;v<=15;v++){var cc=v<10?8:16;
+if(totalDC(v,ec)*8>=4+cc+len*8)return v;}throw new Error("データが長すぎます");}
+function buildCW(bytes,v,ec){var bits=[],i;
+function push(val,n){for(var k=n-1;k>=0;k--)bits.push((val>>k)&1);}
+push(4,4);push(bytes.length,v<10?8:16);
+for(i=0;i<bytes.length;i++)push(bytes[i],8);
+var cap=totalDC(v,ec)*8;
+for(i=0;i<4&&bits.length<cap;i++)bits.push(0);
+while(bits.length%8)bits.push(0);
+var pads=[0xec,0x11],p=0;while(bits.length<cap)push(pads[p++%2],8);
+var dcw=[];for(i=0;i<bits.length;i+=8){var b=0;for(var j=0;j<8;j++)b=(b<<1)|bits[i+j];dcw.push(b);}
+var s=RS[ec][v-1],ecLen=s[0],blocks=[],pos=0,n;
+for(n=0;n<s[1];n++){blocks.push(dcw.slice(pos,pos+s[2]));pos+=s[2];}
+for(n=0;n<s[3];n++){blocks.push(dcw.slice(pos,pos+s[4]));pos+=s[4];}
+var ecb=blocks.map(function(b){return rsEC(b,ecLen);});
+var out=[],mx=Math.max(s[2],s[4]);
+for(i=0;i<mx;i++)for(n=0;n<blocks.length;n++)if(i<blocks[n].length)out.push(blocks[n][i]);
+for(i=0;i<ecLen;i++)for(n=0;n<ecb.length;n++)out.push(ecb[n][i]);
+return out;}
+function makeMatrix(v){var size=v*4+17,m=[],res=[],r,i,j;
+for(r=0;r<size;r++){m.push(new Array(size).fill(0));res.push(new Array(size).fill(false));}
+function finder(rr,cc){for(var i=-1;i<=7;i++)for(var j=-1;j<=7;j++){var y=rr+i,x=cc+j;
+if(y<0||y>=size||x<0||x>=size)continue;
+var on=(i>=0&&i<=6&&(j===0||j===6))||(j>=0&&j<=6&&(i===0||i===6))||(i>=2&&i<=4&&j>=2&&j<=4);
+m[y][x]=on?1:0;res[y][x]=true;}}
+finder(0,0);finder(0,size-7);finder(size-7,0);
+for(i=8;i<size-8;i++){var t=i%2===0?1:0;m[6][i]=t;res[6][i]=true;m[i][6]=t;res[i][6]=true;}
+var ap=ALIGN[v-1];
+for(var a=0;a<ap.length;a++)for(var b=0;b<ap.length;b++){var ry=ap[a],rx=ap[b];
+if((ry<8&&rx<8)||(ry<8&&rx>size-9)||(ry>size-9&&rx<8))continue;
+for(i=-2;i<=2;i++)for(j=-2;j<=2;j++){
+m[ry+i][rx+j]=(Math.abs(i)===2||Math.abs(j)===2||(i===0&&j===0))?1:0;res[ry+i][rx+j]=true;}}
+m[size-8][8]=1;res[size-8][8]=true;
+for(i=0;i<9;i++){if(!res[8][i]){res[8][i]=true;m[8][i]=0;}if(!res[i][8]){res[i][8]=true;m[i][8]=0;}}
+for(i=0;i<8;i++){if(!res[8][size-1-i]){res[8][size-1-i]=true;m[8][size-1-i]=0;}
+if(!res[size-1-i][8]){res[size-1-i][8]=true;m[size-1-i][8]=0;}}
+if(v>=7){var vi=VERINFO[v-7];for(i=0;i<18;i++){var bit=(vi>>i)&1,rr=Math.floor(i/3),cc=i%3;
+m[size-11+cc][rr]=bit;res[size-11+cc][rr]=true;m[rr][size-11+cc]=bit;res[rr][size-11+cc]=true;}}
+return{m:m,res:res,size:size};}
+function placeData(mat,cw){var size=mat.size,m=mat.m,res=mat.res,bi=0,total=cw.length*8;
+function bitAt(i){return i<total?(cw[i>>3]>>(7-(i&7)))&1:0;}
+var up=true;
+for(var col=size-1;col>0;col-=2){if(col===6)col--;
+for(var i=0;i<size;i++){var row=up?size-1-i:i;
+for(var k=0;k<2;k++){var c=col-k;if(!res[row][c])m[row][c]=bitAt(bi++);}}
+up=!up;}}
+var MASKS=[function(r,c){return(r+c)%2===0;},function(r){return r%2===0;},function(r,c){return c%3===0;},
+function(r,c){return(r+c)%3===0;},function(r,c){return(Math.floor(r/2)+Math.floor(c/3))%2===0;},
+function(r,c){return(r*c)%2+(r*c)%3===0;},function(r,c){return((r*c)%2+(r*c)%3)%2===0;},
+function(r,c){return((r+c)%2+(r*c)%3)%2===0;}];
+function formatBits(ec,mask){var d=(ECBITS[ec]<<3)|mask,v=d<<10;
+for(var i=14;i>=10;i--)if((v>>i)&1)v^=0x537<<(i-10);
+return((d<<10)|v)^0x5412;}
+function applyFormat(mat,ec,mask){var f=formatBits(ec,mask),size=mat.size,m=mat.m,i;
+for(i=0;i<=5;i++)m[8][i]=(f>>i)&1;
+m[8][7]=(f>>6)&1;m[8][8]=(f>>7)&1;m[7][8]=(f>>8)&1;
+for(i=9;i<=14;i++)m[14-i][8]=(f>>i)&1;
+for(i=0;i<=7;i++)m[size-1-i][8]=(f>>i)&1;
+for(i=8;i<=14;i++)m[8][size-15+i]=(f>>i)&1;
+m[size-8][8]=1;}
+function penalty(m,size){var p=0,r,c,run,dark=0;
+for(r=0;r<size;r++){run=1;for(c=1;c<size;c++){if(m[r][c]===m[r][c-1]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+for(c=0;c<size;c++){run=1;for(r=1;r<size;r++){if(m[r][c]===m[r-1][c]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+for(r=0;r<size-1;r++)for(c=0;c<size-1;c++){var s=m[r][c]+m[r][c+1]+m[r+1][c]+m[r+1][c+1];if(s===0||s===4)p+=3;}
+var p1=[1,0,1,1,1,0,1,0,0,0,0],p2=[0,0,0,0,1,0,1,1,1,0,1];
+function match(get,len){var cnt=0;for(var s=0;s+11<=len;s++){var o1=true,o2=true;
+for(var k=0;k<11;k++){var vv=get(s+k);if(vv!==p1[k])o1=false;if(vv!==p2[k])o2=false;}
+if(o1)cnt++;if(o2)cnt++;}return cnt;}
+for(r=0;r<size;r++)p+=40*match(function(i){return m[r][i];},size);
+for(c=0;c<size;c++)p+=40*match(function(i){return m[i][c];},size);
+for(r=0;r<size;r++)for(c=0;c<size;c++)dark+=m[r][c];
+p+=10*Math.floor(Math.abs(dark*100/(size*size)-50)/5);
+return p;}
+function encode(text,ec){ec=ec||"M";
+var bytes=utf8Bytes(text),v=pickVersion(bytes.length,ec),cw=buildCW(bytes,v,ec);
+var base=makeMatrix(v);placeData(base,cw);
+var best=null,bs=Infinity;
+for(var mask=0;mask<8;mask++){
+var m=base.m.map(function(row){return row.slice();});
+for(var r=0;r<base.size;r++)for(var c=0;c<base.size;c++)
+if(!base.res[r][c]&&MASKS[mask](r,c))m[r][c]^=1;
+var cand={m:m,res:base.res,size:base.size};
+applyFormat(cand,ec,mask);
+var s=penalty(m,base.size);
+if(s<bs){bs=s;best=cand;}}
+return{modules:best.m,size:best.size,version:v};}
+function toSVG(text,opts){opts=opts||{};
+var q=opts.quiet==null?4:opts.quiet,r=encode(text,opts.ec||"M");
+var n=r.size,dim=n+q*2,d="";
+for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(r.modules[y][x])d+="M"+(x+q)+" "+(y+q)+"h1v1h-1z";
+return'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+dim+' '+dim+
+'" shape-rendering="crispEdges" role="img" aria-label="QRコード">'+
+'<rect width="'+dim+'" height="'+dim+'" fill="#ffffff"/>'+
+'<path d="'+d+'" fill="#000000"/></svg>';}
+return{encode:encode,toSVG:toSVG};})();
+</script>
+
+<script>
+(function(){
+"use strict";
+
+/* ── 50音表（横書き・左から あ か さ た な は ま や ら わ 行） ── */
+var ROWS = [
+  ["あ","か","さ","た","な","は","ま","や","ら","わ"],
+  ["い","き","し","ち","に","ひ","み","",  "り","を"],
+  ["う","く","す","つ","ぬ","ふ","む","ゆ","る","ん"],
+  ["え","け","せ","て","ね","へ","め","",  "れ",""  ],
+  ["お","こ","そ","と","の","ほ","も","よ","ろ",""  ]
+];
+var DAKU  = {"か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご","さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ",
+             "た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど","は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ"};
+var HANDAKU = {"は":"ぱ","ひ":"ぴ","ふ":"ぷ","へ":"ぺ","ほ":"ぽ"};
+var SMALL = {"あ":"ぁ","い":"ぃ","う":"ぅ","え":"ぇ","お":"ぉ","や":"ゃ","ゆ":"ゅ","よ":"ょ","つ":"っ","わ":"ゎ"};
+function invert(o){var r={};for(var k in o)r[o[k]]=k;return r;}
+var UNDAKU=invert(DAKU), UNHANDAKU=invert(HANDAKU), UNSMALL=invert(SMALL);
+
+var $=function(id){return document.getElementById(id);};
+var state={name:"",dest:null,idle:null};
+
+/* ── 時計 ── */
+function pad(n){return(n<10?"0":"")+n;}
+function tick(){var d=new Date();$("clock").textContent=pad(d.getHours())+":"+pad(d.getMinutes());}
+tick(); setInterval(tick,10000);
+
+/* ── 名前欄の描画 ── */
+function drawName(){
+  var box=$("namebox"); box.textContent="";
+  var chars=Array.from(state.name);
+  chars.forEach(function(ch){
+    var s=document.createElement("span"); s.className="cell"; s.textContent=ch; box.appendChild(s);
+  });
+  if(chars.length<CONFIG.MAX_LEN){
+    var car=document.createElement("span"); car.className="caret"; box.appendChild(car);
+  }
+  if(chars.length===0){
+    var ph=document.createElement("span"); ph.className="cell ph"; ph.textContent="なまえ"; box.appendChild(ph);
+  }
+  $("toStep2").disabled = chars.length===0;
+}
+
+/* ── 入力操作 ── */
+function typeChar(ch){
+  if(Array.from(state.name).length>=CONFIG.MAX_LEN) return;
+  state.name+=ch; drawName();
+}
+function modLast(map,unmap){
+  var a=Array.from(state.name); if(!a.length) return;
+  var last=a[a.length-1];
+  if(map[last])        a[a.length-1]=map[last];
+  else if(unmap[last]) a[a.length-1]=unmap[last];
+  else return;
+  state.name=a.join(""); drawName();
+}
+var TOOLS={
+  dakuten   :function(){modLast(DAKU,UNDAKU);},
+  handakuten:function(){modLast(HANDAKU,UNHANDAKU);},
+  small     :function(){modLast(SMALL,UNSMALL);},
+  cho       :function(){typeChar("ー");},
+  back      :function(){var a=Array.from(state.name);a.pop();state.name=a.join("");drawName();},
+  clear     :function(){state.name="";drawName();}
+};
+
+/* ── キーボード生成 ── */
+(function buildKbd(){
+  var kbd=$("kbd");
+  ROWS.forEach(function(row){
+    row.forEach(function(ch){
+      var b=document.createElement("button");
+      if(ch===""){ b.className="key blank"; b.tabIndex=-1; b.setAttribute("aria-hidden","true"); }
+      else{ b.className="key"; b.textContent=ch; b.addEventListener("click",function(){typeChar(ch);}); }
+      kbd.appendChild(b);
+    });
+  });
+})();
+/* 列優先で並べ替える（CSS grid は行優先なので order を使わず DOM 順のまま行優先で正しい） */
+
+/* ── 行き先ボタン生成 ── */
+(function buildDests(){
+  var g=$("dests");
+  DESTS.forEach(function(d){
+    var b=document.createElement("button");
+    b.className="dest";
+    b.innerHTML='<span class="code"></span><span class="city"></span><span class="country"></span>';
+    b.querySelector(".code").textContent=d.code;
+    b.querySelector(".city").textContent=d.city;
+    b.querySelector(".country").textContent=d.country;
+    b.addEventListener("click",function(){ state.dest=d; issue(); });
+    g.appendChild(b);
+  });
+})();
+
+/* ── ステップ移動 ── */
+function goStep(n){
+  document.body.setAttribute("data-step",String(n));
+  [1,2,3].forEach(function(i){
+    var el=$("sn"+i);
+    if(i===n) el.setAttribute("data-on","1"); else el.removeAttribute("data-on");
+  });
+  window.scrollTo(0,0);
+}
+
+/* ── 発券 ── */
+function rand(n){return Math.floor(Math.random()*n);}
+function issue(){
+  var d=state.dest;
+  var seat  = (rand(30)+1) + "ABCDEF".charAt(rand(6));
+  var flight= CONFIG.CARRIER + " " + (100+rand(899));
+  var gate  = (rand(60)+1);
+  var now=new Date(), bt=new Date(now.getTime()+40*60000);
+
+  $("tName").textContent   = state.name;
+  $("tCode").textContent   = d.code;
+  $("tCity").textContent   = d.city + "／" + d.country;
+  $("tFlight").textContent = flight;
+  $("tGate").textContent   = gate;
+  $("tSeat").textContent   = seat;
+  $("tCarrier").textContent= CONFIG.CARRIER;
+  $("tFoot").textContent   = CONFIG.FOOTER;
+  $("tDate").textContent   = (now.getMonth()+1)+"/"+now.getDate();
+  $("tTime").textContent   = pad(bt.getHours())+":"+pad(bt.getMinutes());
+
+  /* 個人情報はサーバへ送らない。すべて URL の # 以降に載せる。
+     # 以降はブラウザからサーバへ送信されないため、ホスティングの
+     アクセスログにも名前は残らない。 */
+  var url = CONFIG.PASS_URL
+          + "#n=" + encodeURIComponent(state.name)
+          + "&d=" + d.code
+          + "&s=" + seat
+          + "&f=" + encodeURIComponent(flight);
+
+  /* レシート（印刷される実物）側の項目 */
+  $("rcName").textContent = state.name + " さん";
+  $("rcFrom").textContent = "HND";
+  $("rcTo").textContent   = d.code;
+  $("rcFoot").textContent = CONFIG.FOOTER + " \u00b7 FAMILY DAY";
+
+  try{
+    var svg = TinyQR.toSVG(url,{ec:CONFIG.EC,quiet:2});
+    $("qr").innerHTML   = svg;   /* 画面プレビュー用 */
+    $("rcQr").innerHTML = svg;   /* 印刷レシート用   */
+  }catch(e){
+    $("qr").textContent   = "QRを作れませんでした";
+    $("rcQr").textContent = "QR ERROR";
+  }
+  goStep(3);
+  startIdle();
+}
+
+/* ── 印刷 ─────────────────────────────────────────────
+   Chrome を  chrome.exe --kiosk --kiosk-printing "file:///…/kiosk.html"
+   で起動すると、印刷ダイアログを出さず既定プリンタへ即座に出力されます。
+   ──────────────────────────────────────────────────── */
+function doPrint(){
+  window.print();
+  setTimeout(restart, 1500);
+}
+
+/* ── リセット（名前は一切保存しない） ── */
+function restart(){
+  state.name=""; state.dest=null;
+  drawName();
+  $("qr").textContent="";
+  $("tName").textContent="-";
+  goStep(1);
+  startIdle();
+}
+
+/* ── 無操作タイマー ── */
+function startIdle(){
+  clearTimeout(state.idle);
+  state.idle=setTimeout(function(){
+    if(document.body.getAttribute("data-step")!=="1") restart();
+  },CONFIG.IDLE_MS);
+}
+["click","touchstart","keydown"].forEach(function(ev){
+  document.addEventListener(ev,startIdle,{passive:true});
+});
+
+/* ── イベント割り当て ── */
+document.addEventListener("click",function(e){
+  var t=e.target.closest("[data-act]"); if(!t) return;
+  var a=t.getAttribute("data-act");
+  if(TOOLS[a]) return TOOLS[a]();
+  if(a==="toStep1") goStep(1);
+  if(a==="print")   doPrint();
+  if(a==="restart") restart();
+});
+$("toStep2").addEventListener("click",function(){ if(state.name) goStep(2); });
+
+/* キオスク運用の細かい配慮 */
+document.addEventListener("contextmenu",function(e){e.preventDefault();});
+document.addEventListener("dblclick",function(e){e.preventDefault();});
+document.addEventListener("gesturestart",function(e){e.preventDefault();});
+
+/* 設定漏れの警告 */
+if(/example\.github\.io/.test(CONFIG.PASS_URL)){
+  var s=$("setup");
+  s.hidden=false;
+  s.textContent="⚠ 設定が必要です：kiosk.html の CONFIG.PASS_URL を、公開した pass.html のURLに書き換えてください。";
+}
+
+$("autoreset").textContent="（"+Math.round(CONFIG.IDLE_MS/1000)+"びょうで つぎの人に かわります）";
+drawName();
+})();
+</script>
+</body>
+</html>

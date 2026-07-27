@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#10161b">
+<title>フライトじょうほう｜海外事業部</title>
+<style>
+:root{
+  --stock:#e9efe4;
+  --stock-2:#dbe4d3;
+  --ink:#1b3a5c;
+  --ink-soft:#5f7a95;
+  --stamp:#b4372c;
+  --board:#10161b;
+  --board-2:#1a232b;
+  --amber:#f0a73b;
+  --rule:#b4c3a8;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"MS Gothic",monospace;
+  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--jp);
+  background:var(--board);
+  color:var(--ink);
+  min-height:100vh;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:34rem;margin:0 auto;padding:0 0 3rem}
+
+/* ══ 出発案内板 ══════════════════════════════════════ */
+.board{
+  background:var(--board);
+  padding:1.6rem clamp(1rem,5vw,1.8rem) 1.9rem;
+  border-bottom:3px solid var(--amber);
+}
+.board .eyebrow{
+  font-family:var(--mono);color:var(--ink-soft);
+  font-size:.62rem;letter-spacing:.32em;margin-bottom:1.1rem;
+  display:flex;justify-content:space-between;
+}
+.board .eyebrow b{color:var(--amber);font-weight:400}
+
+/* 反転フラップ */
+.flaps{display:flex;gap:.22em;flex-wrap:wrap}
+.flap{
+  display:inline-block;
+  background:var(--board-2);color:var(--amber);
+  font-family:var(--mono);font-weight:700;
+  border-radius:3px;
+  padding:.1em .12em;
+  min-width:.78em;text-align:center;
+  box-shadow:inset 0 -1px 0 rgba(255,255,255,.09),0 1px 0 rgba(0,0,0,.5);
+  position:relative;
+}
+.flap::after{
+  content:"";position:absolute;left:0;right:0;top:50%;height:1px;
+  background:rgba(0,0,0,.55);
+}
+.flap.jp{font-family:var(--jp);min-width:1em}
+.flap.spin{color:#8a6a34}
+
+.route{display:flex;align-items:center;gap:.7rem;margin-bottom:1.1rem}
+.route .flaps{font-size:clamp(2.1rem,11vw,3.4rem);line-height:1}
+.route .arrow{color:var(--amber);font-size:clamp(1.2rem,5vw,1.8rem);opacity:.7}
+
+.boardname .flaps{font-size:clamp(1.35rem,6.5vw,2rem);line-height:1.15}
+.boardname .lbl{
+  font-family:var(--mono);color:var(--ink-soft);
+  font-size:.6rem;letter-spacing:.26em;margin-bottom:.5rem;display:block;
+}
+
+/* ══ 券面 ════════════════════════════════════════════ */
+.pass{
+  background:
+    repeating-linear-gradient(90deg,transparent 0 3px,rgba(27,58,92,.03) 3px 4px),
+    var(--stock);
+  padding:clamp(1.2rem,5vw,1.8rem) clamp(1rem,5vw,1.8rem) 1.4rem;
+}
+.greet{
+  text-align:center;border-bottom:2px dashed var(--rule);padding-bottom:1.3rem;margin-bottom:1.3rem;
+}
+.greet .word{
+  font-size:clamp(1.7rem,8vw,2.6rem);font-weight:800;letter-spacing:.02em;
+  color:var(--stamp);line-height:1.25;
+}
+.greet .roman{font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;color:var(--ink-soft);margin-top:.35em}
+.greet .meaning{font-size:.95rem;margin-top:.7em;font-weight:700}
+
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:.9rem 1.2rem;margin-bottom:1.3rem}
+.fact{border-top:2px solid var(--ink);padding-top:.5rem}
+.fact .k{font-family:var(--mono);font-size:.55rem;letter-spacing:.18em;color:var(--ink-soft);display:block}
+.fact .v{font-size:1.45rem;font-weight:800;font-family:var(--mono);letter-spacing:.02em}
+.fact .v small{font-size:.55em;font-weight:700;margin-left:.15em}
+.fact.wide{grid-column:1/-1}
+.fact.wide .v{font-family:var(--jp);font-size:1.02rem;line-height:1.6;font-weight:700}
+
+.stub{
+  background:var(--stock-2);border:2px solid var(--ink);border-radius:3px;
+  padding:.8rem 1rem;font-family:var(--mono);
+  display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:1.4rem;
+}
+.stub div{min-width:0}
+.stub .k{font-size:.52rem;letter-spacing:.16em;color:var(--ink-soft);display:block}
+.stub .v{font-size:1.1rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.cta{
+  display:block;width:100%;text-align:center;text-decoration:none;
+  background:var(--stamp);color:#fff;font-weight:800;
+  font-size:1.15rem;padding:1em;border-radius:4px;letter-spacing:.05em;
+  box-shadow:inset 0 -4px 0 rgba(0,0,0,.25);
+}
+.cta:active{transform:translateY(2px);box-shadow:none}
+.cta:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.cta small{display:block;font-size:.66rem;font-weight:400;letter-spacing:.18em;opacity:.85;margin-top:.4em;font-family:var(--mono)}
+
+.privacy{
+  margin-top:1.4rem;border-top:1px solid var(--rule);padding-top:.9rem;
+  font-size:.72rem;line-height:1.85;color:var(--ink-soft);
+}
+.privacy b{color:var(--ink)}
+
+.empty{padding:2.5rem clamp(1rem,5vw,1.8rem);text-align:center}
+.empty h2{font-size:1.3rem;margin-bottom:.8rem}
+.empty p{font-size:.92rem;line-height:1.9;color:var(--ink-soft)}
+
+.setup{background:var(--stamp);color:#fff;font-size:.8rem;padding:.7em 1em;text-align:center;line-height:1.6}
+.setup[hidden]{display:none}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="board">
+    <p class="eyebrow"><span>BOARDING PASS</span><b id="flightNo">──</b></p>
+    <div class="route">
+      <span class="flaps" id="fFrom"></span>
+      <span class="arrow">✈</span>
+      <span class="flaps" id="fTo"></span>
+    </div>
+    <div class="boardname">
+      <span class="lbl">PASSENGER</span>
+      <span class="flaps" id="fName"></span>
+    </div>
+  </header>
+
+  <main class="pass" id="pass" hidden>
+    <section class="greet">
+      <p class="word" id="gWord">-</p>
+      <p class="roman" id="gRoman">-</p>
+      <p class="meaning" id="gMeaning">-</p>
+    </section>
+
+    <section class="facts">
+      <div class="fact">
+        <span class="k">FLIGHT TIME</span>
+        <span class="v" id="fTime">-</span>
+      </div>
+      <div class="fact">
+        <span class="k">DISTANCE</span>
+        <span class="v" id="fDist">-</span>
+      </div>
+      <div class="fact wide">
+        <span class="k">DID YOU KNOW?</span>
+        <span class="v" id="fTrivia">-</span>
+      </div>
+    </section>
+
+    <div class="stub">
+      <div><span class="k">SEAT</span><span class="v" id="sSeat">-</span></div>
+      <div><span class="k">FLIGHT</span><span class="v" id="sFlight">-</span></div>
+      <div><span class="k">CLASS</span><span class="v">FAMILY</span></div>
+    </div>
+
+    <a class="cta" id="video" href="#">
+      きないビデオを みる
+      <small>IN-FLIGHT ENTERTAINMENT</small>
+    </a>
+
+    <p class="privacy">
+      <b>なまえは どこにも ほぞんされていません。</b><br>
+      このページは、QRコードに書かれた文字を そのまま画面に出しているだけです。
+      名前はサーバーに送られず、記録も残りません。チケットを捨てれば、そのなまえは
+      どこにも残らないしくみです。
+    </p>
+  </main>
+
+  <section class="empty" id="empty" hidden>
+    <div class="pass">
+      <h2>チケットを よみとってね</h2>
+      <p>
+        このページは、会場で発行した とうじょうけんの QRコードから ひらくページです。<br><br>
+        チケットの QRコードを スマートフォンのカメラで よみとると、いきさきの じょうほうが 出てきます。
+      </p>
+    </div>
+  </section>
+
+  <div class="setup" id="setup" hidden></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ★ ここだけ書き換えてください
+   ═══════════════════════════════════════════════════════════ */
+var CONFIG = {
+  // 機内ビデオ。youtu.be の短縮URLにすると、iPhoneでは
+  // YouTubeアプリが開いて音つきで自動再生されます。
+  // 動画は「限定公開(Unlisted)」にしておくと検索に出ません。
+  VIDEO_URL : "https://youtu.be/dQw4w9WgXcQ",
+
+  ORIGIN    : "HND"   // 出発空港コード
+};
+
+var DESTS = {
+  HAN:{city:"ハノイ", country:"ベトナム",
+       word:"シン チャオ", roman:"XIN CHAO", meaning:"「こんにちは」って いういみだよ",
+       time:"6", dist:"3,700",
+       trivia:"「フォー」という お米でできた 白いめんが 大にんき。あさごはんに たべるよ。"},
+  PNH:{city:"プノンペン", country:"カンボジア",
+       word:"スオスダイ", roman:"SUOSDEI", meaning:"「こんにちは」って いういみだよ",
+       time:"7", dist:"4,300",
+       trivia:"アンコールワットという、900年ちかく まえの 大きな せきぞうの おてらが あるよ。"},
+  CGK:{city:"ジャカルタ", country:"インドネシア",
+       word:"スラマッ シアン", roman:"SELAMAT SIANG", meaning:"「こんにちは」って いういみだよ",
+       time:"8", dist:"5,800",
+       trivia:"しまの かずが 1まん7せん いじょう。せかいで いちばん しまが おおい くにだよ。"},
+  MNL:{city:"マニラ", country:"フィリピン",
+       word:"クムスタ", roman:"KUMUSTA", meaning:"「げんき？」って いういみだよ",
+       time:"5", dist:"3,000",
+       trivia:"「ジープニー」という、カラフルに かざられた のりあいバスが はしっているよ。"},
+  BKK:{city:"バンコク", country:"タイ",
+       word:"サワッディー", roman:"SAWATDEE", meaning:"「こんにちは」って いういみだよ",
+       time:"7", dist:"4,600",
+       trivia:"「トゥクトゥク」という 3りんの タクシーが まちを ビュンビュン はしるよ。"},
+  KUL:{city:"クアラルンプール", country:"マレーシア",
+       word:"スラマッ パギ", roman:"SELAMAT PAGI", meaning:"「おはよう」って いういみだよ",
+       time:"8", dist:"5,300",
+       trivia:"ふたごの ような 452メートルの タワーが あって、そらの上で はしが つながっているよ。"},
+  VTE:{city:"ビエンチャン", country:"ラオス",
+       word:"サバイディー", roman:"SABAIDEE", meaning:"「こんにちは」って いういみだよ",
+       time:"8", dist:"4,100",
+       trivia:"うみが ない くに。かわりに メコンがわ という とても大きな かわが ながれているよ。"}
+};
+</script>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id);};
+
+/* ── URL の # 以降だけを読む（サーバーには送られない領域） ── */
+function parseHash(){
+  var h=location.hash.replace(/^#/,"");
+  var o={};
+  if(!h) return o;
+  h.split("&").forEach(function(kv){
+    var i=kv.indexOf("=");
+    if(i<0) return;
+    try{ o[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1)); }catch(e){}
+  });
+  return o;
+}
+
+/* ── 反転フラップ（スプリットフラップ）演出 ── */
+var POOL_JP="あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん";
+var POOL_EN="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function flapInto(el, text, jp){
+  el.textContent="";
+  var chars=Array.from(text);
+  var pool = jp ? POOL_JP : POOL_EN;
+  chars.forEach(function(ch,i){
+    var s=document.createElement("span");
+    s.className="flap"+(jp?" jp":"");
+    s.textContent=ch;
+    el.appendChild(s);
+    if(reduce) return;
+    var steps=8+i*2, n=0;
+    s.classList.add("spin");
+    var iv=setInterval(function(){
+      n++;
+      if(n>=steps){
+        clearInterval(iv);
+        s.textContent=ch;
+        s.classList.remove("spin");
+      }else{
+        s.textContent=pool.charAt(Math.floor(Math.random()*pool.length));
+      }
+    }, 55);
+  });
+}
+
+/* ── 描画 ── */
+var q=parseHash();
+var d=DESTS[q.d];
+
+if(!q.n || !d){
+  $("empty").hidden=false;
+  flapInto($("fFrom"), CONFIG.ORIGIN, false);
+  flapInto($("fTo"),   "???",         false);
+  flapInto($("fName"), "ようこそ",     true);
+}else{
+  $("pass").hidden=false;
+
+  var name=Array.from(q.n).slice(0,12).join("");   /* 念のため長さを制限 */
+  flapInto($("fFrom"), CONFIG.ORIGIN, false);
+  flapInto($("fTo"),   q.d,           false);
+  flapInto($("fName"), name,          true);
+
+  $("flightNo").textContent = q.f || "──";
+  $("gWord").textContent    = d.word;
+  $("gRoman").textContent   = d.roman + " ／ " + d.city + "・" + d.country;
+  $("gMeaning").textContent = d.meaning;
+  $("fTime").innerHTML      = "やく" + d.time + "<small>じかん</small>";
+  $("fDist").innerHTML      = d.dist + "<small>km</small>";
+  $("fTrivia").textContent  = d.trivia;
+  $("sSeat").textContent    = q.s || "-";
+  $("sFlight").textContent  = q.f || "-";
+
+  document.title = name + "さんの フライトじょうほう";
+}
+
+$("video").href = CONFIG.VIDEO_URL;
+
+if(/dQw4w9WgXcQ/.test(CONFIG.VIDEO_URL)){
+  var s=$("setup");
+  s.hidden=false;
+  s.textContent="⚠ 設定が必要です：pass.html の CONFIG.VIDEO_URL を、流したい動画のURLに書き換えてください。";
+}
+})();
+</script>
+</body>
+</html>
