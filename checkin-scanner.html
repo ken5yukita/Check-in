@@ -176,9 +176,9 @@ body[data-view="error"] #error{display:flex}
   <button class="retry" id="retryBtn">もういちど ためす</button>
 </section>
 
-<!-- Safari/iOS でも動くQR読み取り（BarcodeDetector非対応の端末用フォールバック）。
-     スキャナーは元々ネット接続前提（GitHub Pages）なので外部読み込みで問題なし。 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<!-- Safari/iOS でも動くQR読み取り。npmを直接ミラーする jsDelivr を第一候補にし、
+     読み込めなかった場合は start() 側で別CDNを順に試す。 -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -339,68 +339,116 @@ function loop(){
   rafId=requestAnimationFrame(loop);
 }
 
+/* ══ jsQRを確実に読み込む（複数CDNを順に試す） ══════════ */
+function loadScript(url){
+  return new Promise(function(res,rej){
+    var s=document.createElement("script");
+    s.src=url; s.async=true;
+    s.onload=function(){ res(); };
+    s.onerror=function(){ rej(new Error("load fail")); };
+    document.head.appendChild(s);
+  });
+}
+function ensureJsQR(){
+  if(window.jsQR) return Promise.resolve();
+  var urls=[
+    "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",
+    "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"
+  ];
+  var chain=Promise.reject();
+  urls.forEach(function(url){
+    chain=chain.catch(function(){
+      if(window.jsQR) return;
+      return loadScript(url).then(function(){ if(!window.jsQR) throw new Error("no global"); });
+    });
+  });
+  return chain;
+}
+
 /* ══ カメラ起動 ══════════════════════════════════════ */
 function showError(title, body){
   document.body.setAttribute("data-view","error");
   $("errTitle").textContent=title;
   $("errBody").innerHTML=body;
 }
+function beginLoop(){
+  document.body.setAttribute("data-view","scan");
+  scanning=true;
+  if(CONFIG.ANNOUNCE_VOICE && window.speechSynthesis){ try{ window.speechSynthesis.getVoices(); }catch(e){} }
+  loop();
+}
+function camError(err){
+  var name=err && err.name || "";
+  if(name==="NotAllowedError" || name==="SecurityError"){
+    showError("カメラが きょかされていません",
+      "ブラウザに カメラの しようを きょかしてから、もういちど おしてください。<br>"+
+      "（iPhoneは 設定 → アプリ → Safari → カメラ で 許可できます）");
+  }else if(name==="NotFoundError"){
+    showError("カメラが みつかりません","この 端末で つかえる カメラが 見つかりませんでした。");
+  }else if(name==="NotReadableError"){
+    showError("カメラを つかえません","カメラが 別のアプリで つかわれている かもしれません。ほかのアプリを とじて ためしてください。");
+  }else{
+    showError("カメラを ひらけませんでした", (name||"エラー")+" が はっせいしました。");
+  }
+}
 
 function start(){
   unlockAudio();
 
-  /* 対応チェック */
   if(!window.isSecureContext){
     showError("安全な接続が ひつようです",
       "カメラは <code>https://</code> または <code>localhost</code> でしか うごきません。<br>"+
       "GitHub Pages など https のURLから ひらいてください（ファイルを ダブルクリックして ひらいた場合は うごきません）。");
     return;
   }
-  /* 読み取り方式の決定：BarcodeDetectorがあれば高速なnative、
-     無ければ（Safari/iOS等）jsQRにフォールバック */
-  if("BarcodeDetector" in window){
-    try{ detector=new window.BarcodeDetector({formats:["qr_code"]}); }
-    catch(e){ detector=new window.BarcodeDetector(); }
-    mode="native";
-  }else if(window.jsQR){
-    mode="jsqr";
-    canvas=$("frame");
-    cctx=canvas.getContext("2d",{willReadFrequently:true});
-  }else{
-    showError("QRライブラリを 読み込めません",
-      "QR読み取り用の ファイルを 読み込めませんでした。<br>"+
-      "インターネットに つながっているか 確認して、もういちど ためしてください。");
-    return;
-  }
-
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     showError("カメラを つかえません","この ブラウザは カメラに 対応していません。");
     return;
   }
 
-  navigator.mediaDevices.getUserMedia({
+  /* 読み取り方式：BarcodeDetectorがあれば高速なnative、無ければjsQR */
+  var useNative = ("BarcodeDetector" in window);
+  if(useNative){
+    try{ detector=new window.BarcodeDetector({formats:["qr_code"]}); }
+    catch(e){ try{ detector=new window.BarcodeDetector(); }catch(e2){ useNative=false; } }
+  }
+
+  /* カメラは タップ直後に すぐ起動（ジェスチャ内で呼ぶ）。
+     jsQRの読み込みは これと 並行して 進める。 */
+  var camReady = navigator.mediaDevices.getUserMedia({
     video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} },
     audio:false
   }).then(function(s){
     stream=s;
     var v=$("video");
     v.srcObject=s;
+    v.setAttribute("playsinline","");
     return v.play();
-  }).then(function(){
-    document.body.setAttribute("data-view","scan");
-    scanning=true;
-    /* 音声合成の初回起動を空打ちして準備（無音） */
-    if(CONFIG.ANNOUNCE_VOICE && window.speechSynthesis){ try{ window.speechSynthesis.getVoices(); }catch(e){} }
-    loop();
+  });
+
+  if(useNative){
+    mode="native";
+    camReady.then(beginLoop).catch(camError);
+    return;
+  }
+
+  /* jsQR方式：ライブラリ読み込みとカメラ起動の両方が そろってから開始 */
+  mode="jsqr";
+  canvas=$("frame");
+  cctx=canvas.getContext("2d",{willReadFrequently:true});
+
+  Promise.all([ camReady, ensureJsQR() ]).then(function(){
+    beginLoop();
   }).catch(function(err){
-    var name=err && err.name || "";
-    if(name==="NotAllowedError" || name==="SecurityError"){
-      showError("カメラが きょかされていません",
-        "ブラウザに カメラの しようを きょかしてから、もういちど おしてください。");
-    }else if(name==="NotFoundError"){
-      showError("カメラが みつかりません","この 端末で つかえる カメラが 見つかりませんでした。");
+    if(err && (err.name==="NotAllowedError"||err.name==="NotFoundError"||err.name==="SecurityError"||err.name==="NotReadableError")){
+      camError(err);
+    }else if(!window.jsQR){
+      showError("QRの じゅんびに 失敗しました",
+        "QR読み取り用の ファイルを 読み込めませんでした。<br>"+
+        "通信環境を かえて（会場Wi-Fiや モバイル回線など）、もういちど ためしてください。");
     }else{
-      showError("カメラを ひらけませんでした", (name||"エラー")+" が はっせいしました。");
+      camError(err);
     }
   });
 }
