@@ -1,0 +1,371 @@
+<!--
+  GOOJPRT PT-210 キオスク印刷モジュール（Web Bluetooth / ESC-POS ラスター印刷）
+  --------------------------------------------------------------------------
+  ・BLE Service : 000018f0-... / Write Char : 00002af1-...（予備経路も自動探索）
+  ・日本語対応のため、チケットをCanvasに描画→モノクロ化→ GS v 0 で画像送信
+  ・Chrome / Edge（PC・Android）で動作。Safari / iOS は Web Bluetooth 非対応。
+  ・HTTPS 必須（GitHub Pages でOK）。Claudeのプレビュー枠内ではBluetooth権限が
+    ブロックされ接続できない場合があります。実機確認はデプロイ先で行ってください。
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0b1013; --panel:#121a1f; --line:#22323a; --ink:#e8eef0;
+    --dim:#7f97a1; --amber:#ffb31a; --amber-dim:#8a6a1a; --go:#28c76f; --stop:#ff5964;
+    --mono:"SFMono-Regular",ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    display:flex;justify-content:center;min-height:100vh}
+  .wrap{width:100%;max-width:860px;padding:24px}
+  header{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);
+    padding-bottom:14px;margin-bottom:20px}
+  .brandmark{font-family:var(--mono);font-size:13px;letter-spacing:.28em;color:var(--amber)}
+  h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.01em}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:auto;letter-spacing:.06em}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--dim);
+    text-transform:uppercase;margin:0 0 12px}
+  label{display:block;font-size:12px;color:var(--dim);margin:12px 0 5px}
+  input{width:100%;background:#0a1216;border:1px solid var(--line);border-radius:7px;
+    color:var(--ink);font-family:var(--sans);font-size:15px;padding:10px 12px}
+  input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,179,26,.15)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  button{font-family:var(--sans);font-weight:600;font-size:14px;border:none;border-radius:8px;
+    padding:12px 14px;cursor:pointer;transition:.15s}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .btn-connect{background:var(--amber);color:#1a1200;width:100%}
+  .btn-connect.on{background:transparent;color:var(--go);border:1px solid var(--go)}
+  .btn-print{background:var(--go);color:#052012;flex:2}
+  .btn-test{background:transparent;color:var(--dim);border:1px solid var(--line);flex:1}
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .status{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;
+    margin-bottom:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--stop);box-shadow:0 0 8px var(--stop)}
+  .dot.on{background:var(--go);box-shadow:0 0 8px var(--go)}
+  .preview-shell{display:flex;justify-content:center;padding:16px;background:
+    repeating-linear-gradient(45deg,#0a1216,#0a1216 8px,#0d161b 8px,#0d161b 16px);
+    border-radius:8px;border:1px solid var(--line)}
+  /* 384pxのcanvasを2倍で見せる。thermalドットを保つため pixelated */
+  #preview{width:288px;image-rendering:pixelated;background:#fff;border-radius:3px;
+    box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  .log{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.65;
+    margin-top:14px;max-height:120px;overflow:auto;white-space:pre-wrap}
+  .log b{color:var(--amber)}
+  .hint{font-size:11px;color:var(--dim);margin-top:10px;line-height:1.6}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="brandmark">✈ FAMILY&nbsp;DAY</span>
+    <h1>チェックイン発券コンソール</h1>
+    <span class="sub">PT-210 / BLE</span>
+  </header>
+
+  <div class="grid">
+    <!-- 左：入力＆操作 -->
+    <div class="panel">
+      <p class="eyebrow">Printer connection</p>
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">未接続</span></div>
+      <button class="btn-connect" id="connectBtn">プリンターに接続</button>
+
+      <p class="eyebrow" style="margin-top:22px">Passenger details</p>
+      <label>お名前</label>
+      <input id="fName" value="山田 花子" autocomplete="off">
+      <div class="row">
+        <div><label>受付番号</label><input id="fNo" value="F-1024" autocomplete="off"></div>
+        <div><label>ゲート</label><input id="fGate" value="F1" autocomplete="off"></div>
+      </div>
+      <label>QRに入れる値（受付ID等）</label>
+      <input id="fQr" value="CHECKIN:F-1024" autocomplete="off">
+
+      <div class="actions">
+        <button class="btn-print" id="printBtn" disabled>この内容で発券</button>
+        <button class="btn-test" id="testBtn" disabled>テスト印刷</button>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+
+    <!-- 右：プレビュー -->
+    <div class="panel">
+      <p class="eyebrow">Live preview&nbsp;·&nbsp;58mm (384dot)</p>
+      <div class="preview-shell"><canvas id="preview" width="384" height="10"></canvas></div>
+      <p class="hint">プレビューは実際の印字ドットを等倍で描画しています。入力を変えると自動更新されます。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================================================================
+   1. 定数：PT-210 のBLE経路（優先順に自動探索）
+   ======================================================================== */
+const PRINTER_SERVICES = [
+  "000018f0-0000-1000-8000-00805f9b34fb", // 主経路（write: 00002af1）
+  "0000fee7-0000-1000-8000-00805f9b34fb", // 予備（write: 0000fec7）
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455", // ISSC透過UART（一部個体）
+];
+
+const PRINT_WIDTH = 384;          // 58mm = 384 dots
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+let device = null, characteristic = null, useNoResponse = true;
+
+/* ========================================================================
+   2. ログ表示
+   ======================================================================== */
+const logEl = document.getElementById("log");
+function log(msg, mark){
+  const t = new Date().toLocaleTimeString("ja-JP",{hour12:false});
+  logEl.innerHTML += (mark ? "<b>" : "") + `[${t}] ${msg}` + (mark ? "</b>" : "") + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* ========================================================================
+   3. Bluetooth 接続
+   ======================================================================== */
+const connectBtn = document.getElementById("connectBtn");
+const dot = document.getElementById("dot");
+const statusText = document.getElementById("statusText");
+const printBtn = document.getElementById("printBtn");
+const testBtn  = document.getElementById("testBtn");
+
+function setConnected(on){
+  dot.classList.toggle("on", on);
+  connectBtn.classList.toggle("on", on);
+  connectBtn.textContent = on ? "接続済み（切断はこちら）" : "プリンターに接続";
+  printBtn.disabled = testBtn.disabled = !on;
+}
+
+async function findWritable(server){
+  for (const su of PRINTER_SERVICES){
+    try{
+      const svc = await server.getPrimaryService(su);
+      const chars = await svc.getCharacteristics();
+      for (const c of chars){
+        if (c.properties.writeWithoutResponse || c.properties.write){
+          useNoResponse = !!c.properties.writeWithoutResponse;
+          log(`書込経路を発見: service ${su.slice(0,8)} / char ${c.uuid.slice(0,8)}`);
+          return c;
+        }
+      }
+    }catch(_){ /* このserviceは無い個体 */ }
+  }
+  throw new Error("書き込み可能なcharacteristicが見つかりません");
+}
+
+connectBtn.addEventListener("click", async () => {
+  if (device && device.gatt.connected){ device.gatt.disconnect(); return; }
+  if (!navigator.bluetooth){
+    statusText.textContent = "この端末は Web Bluetooth 非対応";
+    log("navigator.bluetooth が存在しません（Safari/iOSは非対応。ChromeまたはEdgeを使用）", true);
+    return;
+  }
+  try{
+    log("デバイス選択ダイアログを表示…");
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,             // PT-210は名称が個体で異なるため全表示
+      optionalServices: PRINTER_SERVICES, // 接続後にこれらへアクセス許可
+    });
+    device.addEventListener("gattserverdisconnected", () => {
+      setConnected(false); statusText.textContent = "切断されました";
+      log("gattserverdisconnected");
+    });
+    statusText.textContent = `接続中… (${device.name || "unknown"})`;
+    const server = await device.gatt.connect();
+    characteristic = await findWritable(server);
+    setConnected(true);
+    statusText.textContent = `接続済み: ${device.name || "PT-210"}`;
+    log(`接続成功（${useNoResponse ? "WRITE_WITHOUT_RESPONSE" : "WRITE"}）`, true);
+  }catch(err){
+    statusText.textContent = "接続失敗";
+    log("接続エラー: " + err.message, true);
+    if (String(err.message).match(/permission|globally disabled|user gesture|SecurityError/i)){
+      log("→ プレビュー枠ではBluetoothが制限されます。GitHub Pages等のHTTPSで開いて再試行してください。");
+    }
+  }
+});
+
+/* ========================================================================
+   4. チケット描画（搭乗券風 / 日本語OK）→ Canvas
+   ======================================================================== */
+function drawTicket(canvas, d){
+  const W = PRINT_WIDTH, ctx = canvas.getContext("2d");
+  // まず高さを見積もってからdraw（QRサイズ込み）
+  let qr = null, qrSize = 0;
+  try{
+    qr = qrcode(0, "M"); qr.addData(d.qr || " "); qr.make();
+    const modules = qr.getModuleCount();
+    const scale = Math.max(2, Math.floor((W - 120) / modules));
+    qrSize = modules * scale; qr._scale = scale; qr._modules = modules;
+  }catch(e){ /* ライブラリ未ロード時はQRなし */ }
+
+  const H = 470 + (qr ? qrSize + 30 : 0);
+  canvas.width = W; canvas.height = H;
+  ctx.fillStyle = "#fff"; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = "#000"; ctx.textBaseline = "top";
+
+  const cx = W/2;
+  // 上部の破線
+  dashedLine(ctx, 16, 14, W-16);
+  // エアライン風ヘッダー
+  ctx.textAlign = "left";
+  ctx.font = "700 22px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText("BOARDING PASS", 20, 30);
+  ctx.textAlign = "right";
+  ctx.font = "600 16px system-ui,sans-serif";
+  ctx.fillText("✈ FAMILY DAY", W-20, 36);
+  ctx.textAlign = "left";
+  ctx.font = "13px 'SFMono-Regular',ui-monospace,monospace";
+  ctx.fillText("社員家族見学会 チェックイン", 20, 60);
+  line(ctx, 20, 86, W-20);
+
+  // 氏名
+  ctx.font = "12px system-ui,sans-serif";
+  ctx.fillText("PASSENGER / お名前", 20, 98);
+  ctx.font = "700 30px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText(d.name || "", 20, 116);
+
+  // 3カラム情報
+  const cols = [
+    ["受付番号", d.no || "-"],
+    ["GATE", d.gate || "-"],
+    ["TIME", d.time || "-"],
+  ];
+  const colW = (W-40)/3;
+  ctx.font = "11px 'SFMono-Regular',ui-monospace,monospace";
+  cols.forEach((c,i)=>{ ctx.fillText(c[0], 20 + i*colW, 172); });
+  ctx.font = "700 22px system-ui,sans-serif";
+  cols.forEach((c,i)=>{ ctx.fillText(c[1], 20 + i*colW, 188); });
+
+  line(ctx, 20, 226, W-20);
+  ctx.font = "12px system-ui,sans-serif";
+  ctx.fillText("本券を受付でご提示ください。", 20, 238);
+
+  // QR
+  if (qr){
+    const s = qr._scale, m = qr._modules, size = m*s;
+    const ox = Math.round((W - size)/2), oy = 275;
+    for (let r=0;r<m;r++) for (let col=0;col<m;col++){
+      if (qr.isDark(r,col)){ ctx.fillRect(ox+col*s, oy+r*s, s, s); }
+    }
+    ctx.textAlign = "center";
+    ctx.font = "11px 'SFMono-Regular',ui-monospace,monospace";
+    ctx.fillText(d.qr || "", cx, oy + size + 8);
+    ctx.textAlign = "left";
+  }
+
+  // フッター破線
+  const fy = H - 26;
+  ctx.textAlign = "center";
+  ctx.font = "11px 'SFMono-Regular',ui-monospace,monospace";
+  ctx.fillText("thank you for coming ✦", cx, fy - 18);
+  ctx.textAlign = "left";
+  dashedLine(ctx, 16, fy, W-16);
+}
+function line(ctx,x1,y,x2){ ctx.fillRect(x1,y,x2-x1,2); }
+function dashedLine(ctx,x1,y,x2){
+  for (let x=x1; x<x2; x+=12){ ctx.fillRect(x,y,7,2); }
+}
+
+/* 入力→プレビュー自動更新 */
+const preview = document.getElementById("preview");
+function currentData(){
+  return {
+    name: document.getElementById("fName").value.trim(),
+    no:   document.getElementById("fNo").value.trim(),
+    gate: document.getElementById("fGate").value.trim(),
+    qr:   document.getElementById("fQr").value.trim(),
+    time: new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}),
+  };
+}
+function refresh(){ drawTicket(preview, currentData()); }
+["fName","fNo","fGate","fQr"].forEach(id =>
+  document.getElementById(id).addEventListener("input", refresh));
+// QRライブラリの読み込み完了を待って初回描画
+window.addEventListener("load", () => { refresh(); log("準備完了。プリンターに接続してください。"); });
+
+/* ========================================================================
+   5. Canvas → ESC/POS ラスター（GS v 0）。バンド分割で送出。
+   ======================================================================== */
+function canvasToRasterBands(canvas, {threshold=170, band=64}={}){
+  const {width:W, height:H} = canvas;
+  const data = canvas.getContext("2d").getImageData(0,0,W,H).data;
+  const bytesPerRow = Math.ceil(W/8);
+  const bands = [];
+  for (let y0=0; y0<H; y0+=band){
+    const bh = Math.min(band, H-y0);
+    const raster = new Uint8Array(bytesPerRow*bh);
+    for (let y=0;y<bh;y++){
+      for (let x=0;x<W;x++){
+        const i = ((y0+y)*W + x)*4;
+        const a = data[i+3];
+        const lum = a===0 ? 255 : (data[i]*0.299 + data[i+1]*0.587 + data[i+2]*0.114);
+        if (lum < threshold) raster[y*bytesPerRow + (x>>3)] |= (0x80 >> (x&7));
+      }
+    }
+    // GS v 0 m xL xH yL yH  d1..dk   (m=0)
+    const head = Uint8Array.from([
+      0x1D,0x76,0x30,0x00,
+      bytesPerRow & 0xff, (bytesPerRow>>8)&0xff,
+      bh & 0xff, (bh>>8)&0xff,
+    ]);
+    const cmd = new Uint8Array(head.length + raster.length);
+    cmd.set(head,0); cmd.set(raster,head.length);
+    bands.push(cmd);
+  }
+  return bands;
+}
+
+/* BLEはMTUが小さいので分割＋ペーシングして送る */
+async function sendBytes(bytes, chunk=180, delay=12){
+  for (let i=0;i<bytes.length;i+=chunk){
+    const slice = bytes.subarray(i, i+chunk);
+    if (useNoResponse) await characteristic.writeValueWithoutResponse(slice);
+    else                await characteristic.writeValue(slice);
+    await sleep(delay);
+  }
+}
+
+const ESC_INIT = Uint8Array.from([0x1B,0x40]);            // プリンタ初期化
+const FEED_CUT = Uint8Array.from([0x0A,0x0A,0x0A,0x0A]);  // 紙送り（オートカッター無し機のため空送り）
+
+async function printCanvas(canvas){
+  if (!characteristic){ log("未接続です", true); return; }
+  const bands = canvasToRasterBands(canvas);
+  log(`印刷開始（${bands.length}バンド）…`);
+  await sendBytes(ESC_INIT, 20, 20);
+  for (let b=0;b<bands.length;b++){
+    await sendBytes(bands[b]);
+    await sleep(20); // バンド間で内部バッファを消化させる
+  }
+  await sendBytes(FEED_CUT, 20, 20);
+  log("印刷コマンド送出完了", true);
+}
+
+/* ========================================================================
+   6. ボタン
+   ======================================================================== */
+printBtn.addEventListener("click", async () => {
+  const d = currentData();
+  if (!d.name){ log("お名前が空です", true); return; }
+  drawTicket(preview, d);            // 発券時刻で確定描画
+  printBtn.disabled = true;
+  try{ await printCanvas(preview); }
+  catch(e){ log("印刷エラー: " + e.message, true); }
+  finally{ printBtn.disabled = false; }
+});
+
+testBtn.addEventListener("click", async () => {
+  const c = document.createElement("canvas");
+  drawTicket(c, {name:"テスト印刷", no:"TEST-0", gate:"--", qr:"TEST", time:"--:--"});
+  testBtn.disabled = true;
+  try{ await printCanvas(c); }
+  catch(e){ log("印刷エラー: " + e.message, true); }
+  finally{ testBtn.disabled = false; }
+});
+</script>
