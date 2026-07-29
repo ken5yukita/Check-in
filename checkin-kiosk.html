@@ -362,8 +362,9 @@ async function findWritable(server){
       for(var j=0;j<chars.length;j++){
         var c=chars[j];
         if(c.properties.writeWithoutResponse||c.properties.write){
-          useNoResponse=!!c.properties.writeWithoutResponse;
-          log("書込経路: "+su.slice(0,8)+" / "+c.uuid.slice(0,8)); return c;
+          /* Windowsでは応答あり送信(write)の方が安定するため、あれば優先。 */
+          useNoResponse = c.properties.write ? false : true;
+          log("書込経路: "+su.slice(0,8)+" / "+c.uuid.slice(0,8)+" ["+(useNoResponse?"応答なし":"応答あり")+"]"); return c;
         }
       }
     }catch(_){}
@@ -513,23 +514,47 @@ function canvasToRasterBands(canvas,opt){
   }
   return bands;
 }
-async function sendBytes(bytes,chunk,delay){
-  chunk=chunk||180; delay=delay==null?12:delay;
+/* 堅牢な送信：応答あり優先、失敗時は方式切替・分割縮小・再接続してリトライ */
+var TX = { chunk: 160, delay: 8 };   // 会社PC対策の既定値
+async function rawWrite(slice, withResp){
+  if(withResp && characteristic.writeValue) return characteristic.writeValue(slice);
+  if(characteristic.writeValueWithoutResponse) return characteristic.writeValueWithoutResponse(slice);
+  return characteristic.writeValue(slice);
+}
+async function sendBytes(bytes){
+  var canWith = characteristic.properties.write;
+  var canNR   = characteristic.properties.writeWithoutResponse;
+  var withResp = canWith ? true : false;     // 既定は応答あり（Windows安定）
+  var chunk = TX.chunk;
   for(var i=0;i<bytes.length;i+=chunk){
-    var slice=bytes.subarray(i,i+chunk);
-    if(useNoResponse) await characteristic.writeValueWithoutResponse(slice);
-    else await characteristic.writeValue(slice);
-    await sleep(delay);
+    var slice=bytes.subarray(i, i+chunk);
+    var attempt=0;
+    while(true){
+      try{ await rawWrite(slice, withResp); break; }
+      catch(e){
+        attempt++;
+        log("送信リトライ"+attempt+"（"+(e.message||e)+"）","e");
+        if(attempt===1 && canWith && !withResp){ withResp=true; log("→ 応答あり送信に切替"); }
+        else if(attempt===2 && canNR && withResp){ withResp=false; log("→ 応答なし送信に切替"); }
+        if(device && !device.gatt.connected){
+          log("再接続を試行…");
+          try{ var s=await device.gatt.connect(); characteristic=await findWritable(s); }catch(_){}
+        }
+        if(attempt>=5) throw e;
+        await sleep(150*attempt);
+      }
+    }
+    await sleep(TX.delay);
   }
 }
 var ESC_INIT=Uint8Array.from([0x1B,0x40]), FEED=Uint8Array.from([0x0A,0x0A,0x0A,0x0A]);
 async function printCanvas(canvas){
   if(!characteristic){ log("未接続のため印刷スキップ","e"); return false; }
   var bands=canvasToRasterBands(canvas);
-  log("印刷開始（"+bands.length+"バンド）");
-  await sendBytes(ESC_INIT,20,20);
+  log("印刷開始（"+bands.length+"バンド, "+(useNoResponse?"応答なし":"応答あり")+"送信）");
+  await sendBytes(ESC_INIT);
   for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); await sleep(20); }
-  await sendBytes(FEED,20,20);
+  await sendBytes(FEED);
   log("印刷送出 完了",true);
   return true;
 }
