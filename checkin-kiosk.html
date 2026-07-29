@@ -71,34 +71,70 @@ body[data-step="1"] #s1{display:flex}
 .go:active{transform:translateY(2px);box-shadow:none}
 .go[disabled]{background:#c3ceba;color:#8d9a85;box-shadow:none;cursor:default}
 
+/* ── 名前入力（物理キーボード） ── */
+.nameinput{
+  width:100%;background:#fff;border:2px solid var(--ink);border-radius:4px;
+  color:var(--ink);font-family:var(--jp);font-weight:800;
+  font-size:clamp(2rem,7vh,3.4rem);padding:.4em .6em;text-align:center;
+}
+.nameinput:focus{outline:3px solid var(--stamp);outline-offset:2px}
+.nameinput::placeholder{color:#c9d4c2;font-weight:600;font-size:.5em}
+.inhint{color:var(--ink-soft);font-size:clamp(.85rem,2vh,1.05rem);line-height:1.7;text-align:center}
+.inhint b{color:var(--ink)}
+
 /* ── 発券アニメーション（オーバーレイ） ── */
 .fx{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;
-  background:radial-gradient(120% 120% at 50% 30%,#16202b 0%,#0b0f14 70%);color:#fff;gap:2rem;text-align:center}
+  background:radial-gradient(120% 120% at 50% 30%,#16202b 0%,#0b0f14 70%);color:#fff;gap:1.6rem;text-align:center}
 .fx.show{display:flex}
-.fx .plane-run{font-size:clamp(3rem,14vw,6rem);animation:fly 1.8s ease-in-out infinite}
-@keyframes fly{0%{transform:translateX(-40px)}50%{transform:translateX(40px) translateY(-8px)}100%{transform:translateX(-40px)}}
 .fx h2{font-size:clamp(1.4rem,5vw,2.4rem);font-weight:800;letter-spacing:.08em}
-.fx .runway{width:min(70vw,420px);height:8px;border-radius:6px;background:#22323a;overflow:hidden}
-.fx .runway i{display:block;height:100%;width:40%;border-radius:6px;background:linear-gradient(90deg,var(--amber),#ffd98a);
-  animation:slide 1.4s ease-in-out infinite}
-@keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
 .fx .msg{font-family:var(--mono);letter-spacing:.16em;color:var(--amber);font-size:clamp(.8rem,2.6vw,1.05rem)}
 .fx .confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .fx .confetti i{position:absolute;top:-8%;width:11px;height:16px;border-radius:2px;animation:fall linear forwards}
 @keyframes fall{0%{transform:translateY(-10vh) rotate(0)}100%{transform:translateY(120vh) rotate(720deg)}}
 
-/* 完了カード（印刷後、行き先を大きく見せる） */
-.fx .done{display:none;flex-direction:column;align-items:center;gap:1rem}
-.fx.done-mode .live{display:none}
+/* プリンター機体＋下から出てくるレシート */
+.printing{display:flex;flex-direction:column;align-items:center;gap:1.4rem}
+.machine{position:relative;width:min(72vw,300px)}
+.slot{position:relative;height:clamp(120px,26vh,220px);overflow:hidden;display:flex;justify-content:center}
+.paper{
+  width:74%;background:#fff;border-radius:3px 3px 5px 5px;
+  padding:14px 10px 10px;display:flex;flex-direction:column;gap:9px;align-items:center;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
+  transform:translateY(-100%);animation:emit 2s ease-out forwards;
+}
+@keyframes emit{0%{transform:translateY(-100%)}100%{transform:translateY(0)}}
+.paper .pline{height:7px;width:86%;background:#c9d2d8;border-radius:2px}
+.paper .pline.s1{width:60%;height:12px;background:#243b55}
+.paper .pline.s2{width:44%;background:#e0dcd0}
+.paper .pqr{width:74px;height:74px;margin:4px 0;border-radius:4px;
+  background:
+   linear-gradient(#243b55 0 0) 0 0/16px 16px no-repeat,
+   linear-gradient(#243b55 0 0) 100% 0/16px 16px no-repeat,
+   linear-gradient(#243b55 0 0) 0 100%/16px 16px no-repeat,
+   repeating-linear-gradient(90deg,#243b55 0 5px,#fff 5px 10px),
+   repeating-linear-gradient(0deg,#243b55 0 5px,#fff 5px 10px);
+  background-blend-mode:multiply;border:3px solid #fff;outline:2px solid #243b55}
+.machine .body{
+  margin-top:-6px;background:linear-gradient(#2a3540,#1a232b);border-radius:8px;
+  padding:14px 0 16px;font-family:var(--mono);letter-spacing:.2em;color:#8ea3b5;font-size:.8rem;
+  border:1px solid #3c4a57;position:relative;z-index:2}
+.machine .body .lamp{display:inline-block;width:.6em;height:.6em;border-radius:50%;
+  background:var(--go);box-shadow:0 0 8px var(--go);animation:blink 1s steps(2) infinite;vertical-align:middle;margin-right:.4em}
+.slot::before{content:"";position:absolute;left:8%;right:8%;top:0;height:14px;z-index:3;
+  background:linear-gradient(#1a232b,#2a3540);border-radius:4px;border:1px solid #3c4a57}
+
+/* 完了（行き先は出さない＝シークレット） */
+.fx .done{display:none;flex-direction:column;align-items:center;gap:.8rem}
+.fx.done-mode .printing{display:none}
 .fx.done-mode .done{display:flex}
-.fx .done .flag{font-size:clamp(3.5rem,16vw,7rem);animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
+.fx .done .tick{font-size:clamp(3.2rem,15vw,6rem);animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
 @keyframes pop{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
-.fx .done .to{font-size:clamp(1.6rem,7vw,3rem);font-weight:800}
-.fx .done .greet{font-size:clamp(1.4rem,6vw,2.4rem);color:var(--amber);font-weight:800}
-.fx .done .mean{color:#9fb4c7;font-size:clamp(.95rem,3.6vw,1.3rem)}
-.fx .done .take{font-family:var(--mono);color:#9fb4c7;letter-spacing:.14em;font-size:.9rem;margin-top:.6rem}
-.fx .done .next{margin-top:1.4rem;background:var(--go);color:#052012;border:0;border-radius:10px;
-  font-family:var(--jp);font-weight:800;font-size:1.1rem;padding:.8em 2em;cursor:pointer}
+.fx .done .to{font-size:clamp(1.6rem,7vw,2.8rem);font-weight:800}
+.fx .done .greet{font-size:clamp(1.2rem,5vw,1.9rem);color:var(--amber);font-weight:800}
+.fx .done .take{font-family:var(--mono);color:#9fb4c7;letter-spacing:.1em;font-size:clamp(.75rem,2.4vw,.95rem);margin-top:.4rem}
+.fx .done .next{margin-top:1.2rem;background:var(--go);color:#052012;border:0;border-radius:10px;
+  font-family:var(--jp);font-weight:800;font-size:1.15rem;padding:.8em 2.2em;cursor:pointer}
+.fx .done .auto{font-family:var(--mono);color:#5f7a95;font-size:.8rem;letter-spacing:.1em;margin-top:.2rem}
 
 .warn{position:fixed;left:0;right:0;bottom:0;background:var(--stamp);color:#fff;font-size:.82rem;
   padding:.5em 1em;text-align:center;z-index:30;line-height:1.5}
@@ -126,39 +162,43 @@ body[data-step="1"] #s1{display:flex}
 
 <main>
   <section class="step" id="s1">
-    <h1 class="prompt">なまえを おしえてね<span class="en">PASSENGER NAME</span></h1>
-    <div class="namebox" id="namebox"></div>
-    <div class="kbd" id="kbd"></div>
-    <div class="tools">
-      <button class="tool" data-act="dakuten">゛ てんてん</button>
-      <button class="tool" data-act="handakuten">゜ まる</button>
-      <button class="tool" data-act="small">ちいさく</button>
-      <button class="tool" data-act="cho">ー のばす</button>
-      <button class="tool warn" data-act="back">← けす</button>
-      <button class="tool warn" data-act="clear">ぜんぶけす</button>
-    </div>
+    <h1 class="prompt">お名前を入力してください<span class="en">PASSENGER NAME</span></h1>
+    <input class="nameinput" id="nameInput" type="text" maxlength="12"
+           autocomplete="off" autocapitalize="off" spellcheck="false"
+           placeholder="お名前を入力して Enter">
+    <p class="inhint">キーボードで名前を入力し、<b>Enter</b> または下のボタンで発券します。</p>
     <div class="actions">
-      <button class="go" id="issueBtn" disabled>✈ とうじょうけんを はっこう</button>
+      <button class="go" id="issueBtn" disabled>✈ 搭乗券を 発券する</button>
     </div>
   </section>
 </main>
 
-<!-- 発券アニメーション -->
+<!-- 発券アニメーション（レシートが下からピーッと出る／行き先はシークレット） -->
 <div class="fx" id="fx">
   <div class="confetti" id="fxConfetti"></div>
-  <div class="live">
-    <div class="plane-run">✈</div>
-    <h2 id="fxName">チェックイン ちゅう…</h2>
-    <div class="runway"><i></i></div>
-    <p class="msg" id="fxMsg">いきさきを けんさく しています</p>
+
+  <!-- 印刷中：プリンターからレシートが出てくる -->
+  <div class="printing" id="fxPrinting">
+    <div class="machine">
+      <div class="slot"><div class="paper" id="paper">
+        <div class="pline s1"></div><div class="pline"></div><div class="pline"></div>
+        <div class="pqr"></div>
+        <div class="pline"></div><div class="pline s2"></div>
+      </div></div>
+      <div class="body"><span class="lamp"></span> PT-210</div>
+    </div>
+    <h2 id="fxName">発券しています…</h2>
+    <p class="msg" id="fxMsg">搭乗券を 印刷中</p>
   </div>
-  <div class="done">
-    <div class="flag" id="doneFlag">🎫</div>
-    <p class="to" id="doneTo">-</p>
-    <p class="greet" id="doneGreet">-</p>
-    <p class="mean" id="doneMean">-</p>
-    <p class="take">とうじょうけんを おわすれなく</p>
+
+  <!-- 完了：行き先は出さない -->
+  <div class="done" id="fxDone">
+    <div class="tick">🎫</div>
+    <p class="to">発券完了！</p>
+    <p class="greet">搭乗券を お渡しください</p>
+    <p class="take">行き先は ゲートの読み取り機で わかります</p>
     <button class="next" id="nextBtn">つぎの人へ</button>
+    <p class="auto" id="autoBack"></p>
   </div>
 </div>
 
@@ -389,40 +429,18 @@ $("connectBtn").addEventListener("click", async function(){
   }
 });
 
-/* ═══════ 50音入力 ═══════ */
-var ROWS=[["あ","か","さ","た","な","は","ま","や","ら","わ"],
-["い","き","し","ち","に","ひ","み","","り","を"],
-["う","く","す","つ","ぬ","ふ","む","ゆ","る","ん"],
-["え","け","せ","て","ね","へ","め","","れ",""],
-["お","こ","そ","と","の","ほ","も","よ","ろ",""]];
-var DAKU={"か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご","さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ","た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど","は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ"};
-var HANDAKU={"は":"ぱ","ひ":"ぴ","ふ":"ぷ","へ":"ぺ","ほ":"ぽ"};
-var SMALL={"あ":"ぁ","い":"ぃ","う":"ぅ","え":"ぇ","お":"ぉ","や":"ゃ","ゆ":"ゅ","よ":"ょ","つ":"っ","わ":"ゎ"};
-function invert(o){var r={};for(var k in o)r[o[k]]=k;return r;}
-var UNDAKU=invert(DAKU),UNHANDAKU=invert(HANDAKU),UNSMALL=invert(SMALL);
+/* ═══════ 名前入力（物理キーボード） ═══════ */
 var state={name:""};
-
-function drawName(){
-  var box=$("namebox"); box.textContent="";
-  var chars=Array.from(state.name);
-  chars.forEach(function(ch){var s=document.createElement("span");s.className="cell";s.textContent=ch;box.appendChild(s);});
-  if(chars.length<CONFIG.MAX_LEN){var car=document.createElement("span");car.className="caret";box.appendChild(car);}
-  if(chars.length===0){var ph=document.createElement("span");ph.className="cell ph";ph.textContent="なまえ";box.appendChild(ph);}
-  $("issueBtn").disabled = chars.length===0;
+var nameInput=$("nameInput");
+function syncName(){
+  state.name = nameInput.value.trim();
+  $("issueBtn").disabled = state.name.length===0;
 }
-function typeChar(ch){ if(Array.from(state.name).length>=CONFIG.MAX_LEN)return; state.name+=ch; drawName(); }
-function modLast(map,unmap){var a=Array.from(state.name);if(!a.length)return;var l=a[a.length-1];
-  if(map[l])a[a.length-1]=map[l];else if(unmap[l])a[a.length-1]=unmap[l];else return;state.name=a.join("");drawName();}
-var TOOLS={dakuten:function(){modLast(DAKU,UNDAKU);},handakuten:function(){modLast(HANDAKU,UNHANDAKU);},
-  small:function(){modLast(SMALL,UNSMALL);},cho:function(){typeChar("ー");},
-  back:function(){var a=Array.from(state.name);a.pop();state.name=a.join("");drawName();},
-  clear:function(){state.name="";drawName();}};
-(function buildKbd(){var kbd=$("kbd");ROWS.forEach(function(row){row.forEach(function(ch){
-  var b=document.createElement("button");
-  if(ch===""){b.className="key blank";b.tabIndex=-1;}
-  else{b.className="key";b.textContent=ch;b.addEventListener("click",function(){typeChar(ch);});}
-  kbd.appendChild(b);});});})();
-document.addEventListener("click",function(e){var t=e.target.closest("[data-act]");if(!t)return;var a=t.getAttribute("data-act");if(TOOLS[a])TOOLS[a]();});
+nameInput.addEventListener("input", syncName);
+nameInput.addEventListener("keydown", function(e){
+  if(e.key==="Enter" && state.name.length>0){ e.preventDefault(); issue(); }
+});
+window.addEventListener("load", function(){ try{ nameInput.focus(); }catch(_){} });
 
 /* ═══════ 券のCanvas描画（丸ドットQR・現地語・AC 0806・時刻） ═══════ */
 function isFinder(r,c,n){ return (r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7); }
@@ -575,6 +593,7 @@ function confettiBurst(){
 
 async function issue(){
   if(!state.name) return;
+  clearTimeout(reset._t);
   var d=pick(DESTS);
   var seat=(Math.floor(Math.random()*30)+1)+"ABCDEF".charAt(Math.floor(Math.random()*6));
   var url=CONFIG.PASS_URL+"#n="+encodeURIComponent(state.name)+"&d="+d.code+"&s="+seat+"&f="+encodeURIComponent(CONFIG.FLIGHT);
@@ -583,10 +602,12 @@ async function issue(){
   // 券を（画面に出さず）裏で描画
   try{ drawTicket($("ticket"), ticketData); }catch(e){ log("券の描画失敗: "+e.message,"e"); }
 
-  // アニメーション表示（行き先はまだ伏せる）
+  // 印刷中アニメ：レシートが下からピーッ（行き先は一切出さない＝シークレット）
   var fx=$("fx"); fx.classList.remove("done-mode"); fx.classList.add("show");
-  $("fxName").textContent = state.name+" さん チェックインちゅう…";
-  var msgs=["いきさきを けんさく しています","ゲートを かくにん しています","とうじょうけんを いんさつ しています"];
+  // paper のアニメを毎回頭から流す
+  var paper=$("paper"); paper.style.animation="none"; void paper.offsetWidth; paper.style.animation="";
+  $("fxName").textContent = state.name+" さん、発券しています…";
+  var msgs=["搭乗券を 印刷中","QRコードを 印刷中","もうすぐ できあがり"];
   var mi=0; $("fxMsg").textContent=msgs[0];
   var msgTimer=setInterval(function(){ mi=(mi+1)%msgs.length; $("fxMsg").textContent=msgs[mi]; }, 700);
 
@@ -595,27 +616,32 @@ async function issue(){
   await Promise.all([ printP, sleep(CONFIG.ANIM_MS) ]);
   clearInterval(msgTimer);
 
-  // 完了画面：行き先を大きく披露
-  $("doneFlag").textContent=d.flag;
-  $("doneTo").textContent=d.city+"（"+d.country+"）ゆき";
-  $("doneGreet").textContent=d.word;
-  $("doneMean").textContent="＝ "+d.mean;
+  // 完了画面：行き先は出さない（＝ゲートの読み取り機でのお楽しみ）
   confettiBurst();
   fx.classList.add("done-mode");
+
+  // 数秒で自動的に入力へ戻る（ボタンでも戻れる）
+  var sec=8;
+  $("autoBack").textContent="（"+sec+"秒で つぎの人へ）";
+  clearInterval(issue._c);
+  issue._c=setInterval(function(){ sec--; $("autoBack").textContent = sec>0 ? "（"+sec+"秒で つぎの人へ）":""; if(sec<=0) clearInterval(issue._c); },1000);
+  reset._t=setTimeout(reset, sec*1000);
 }
 function reset(){
-  state.name=""; drawName();
+  clearTimeout(reset._t); clearInterval(issue._c);
+  state.name="";
+  nameInput.value=""; $("issueBtn").disabled=true;
   $("fx").classList.remove("show","done-mode");
   $("fxConfetti").innerHTML="";
+  try{ nameInput.focus(); }catch(_){}
 }
 $("issueBtn").addEventListener("click", issue);
 $("nextBtn").addEventListener("click", reset);
 
-/* 誤操作抑制 */
-document.addEventListener("contextmenu",function(e){e.preventDefault();});
-document.addEventListener("gesturestart",function(e){e.preventDefault();});
+/* 誤操作抑制（入力欄では右クリック等は許可） */
+document.addEventListener("contextmenu",function(e){ if(e.target!==nameInput) e.preventDefault(); });
 
-drawName();
+syncName();
 })();
 </script>
 </body>
