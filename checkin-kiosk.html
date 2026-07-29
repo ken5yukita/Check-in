@@ -1702,7 +1702,7 @@ function canvasToRasterBands(canvas,opt){
   return bands;
 }
 /* 堅牢な送信：応答あり優先、失敗時は方式切替・分割縮小・再接続してリトライ */
-var TX = { chunk: 180, delay: 0 };   // 180=BLE MTU安全圏。応答なし送信で一気に流す
+var TX = { chunk: 180, delay: 2 };   // 180=BLE MTU安全圏。応答なし送信で一気に流す
 async function rawWrite(slice, withResp){
   if(withResp && characteristic.writeValue) return characteristic.writeValue(slice);
   if(characteristic.writeValueWithoutResponse) return characteristic.writeValueWithoutResponse(slice);
@@ -1740,7 +1740,7 @@ async function printCanvas(canvas){
   var bands=canvasToRasterBands(canvas);
   log("印刷開始（"+bands.length+"バンド, "+(useNoResponse?"応答なし":"応答あり")+"送信）");
   await sendBytes(ESC_INIT);
-  for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); await sleep(4); }
+  for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); await sleep(10); }
   await sendBytes(FEED);
   log("印刷送出 完了",true);
   return true;
