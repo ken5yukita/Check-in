@@ -99,6 +99,10 @@ summary{cursor:pointer;color:var(--amber);font-size:.85rem}
     <h2><span class="num">3</span> テスト印刷</h2>
     <button class="btn red" id="printBtn" disabled>🖨 いま接続中のプリンターに印刷</button>
     <div class="status"><span class="dot" id="printDot"></span><span id="printText">プリンター未接続</span></div>
+    <label style="display:flex;align-items:center;gap:.5em;margin-top:.6rem;cursor:pointer;color:#e8eef4">
+      <input type="checkbox" id="slowMode" style="width:auto"> 低速・確実モード（会社PCで失敗する時にON）
+    </label>
+    <p class="help">通常でダメなら、これをONにして再印刷してください。小さく・ゆっくり・応答ありで送るので、会社PCの弱いBluetoothでも通りやすくなります（印刷は少し遅くなります）。</p>
   </div>
 
   <!-- ログ -->
@@ -431,23 +435,47 @@ $("printBtn").addEventListener("click", async function(){
   try{
     var info=buildCanvas($("nameInput").value.trim(), $("urlInput").value.trim());
     var payload=canvasToEscpos(info.canvas);
-    log("送信データ: "+payload.length+" バイト（"+info.width+"x"+info.height+"）");
+    var slow = $("slowMode") && $("slowMode").checked;
+    var CH = slow ? 20 : CONFIG.CHUNK;
+    var DL = slow ? 40 : CONFIG.DELAY_MS;
+    /* Windowsは応答あり送信(write)が安定。あれば優先。 */
+    var canWith = writeChar.properties.write, canNR = writeChar.properties.writeWithoutResponse;
+    var withResp = canWith ? true : false;
+    log("送信データ: "+payload.length+" バイト（"+info.width+"x"+info.height+"） 方式="+(withResp?"応答あり":"応答なし")+" chunk="+CH);
 
-    var useNR = writeChar.properties.writeWithoutResponse;
+    async function rawWrite(slice){
+      if(withResp && writeChar.writeValue) return writeChar.writeValue(slice);
+      if(writeChar.writeValueWithoutResponse) return writeChar.writeValueWithoutResponse(slice);
+      return writeChar.writeValue(slice);
+    }
     var sent=0;
-    for(var off=0; off<payload.length; off+=CONFIG.CHUNK){
-      var chunk=payload.subarray(off, Math.min(off+CONFIG.CHUNK, payload.length));
-      if(useNR && writeChar.writeValueWithoutResponse) await writeChar.writeValueWithoutResponse(chunk);
-      else await writeChar.writeValue(chunk);
-      sent+=chunk.length;
+    for(var off=0; off<payload.length; off+=CH){
+      var slice=payload.subarray(off, Math.min(off+CH, payload.length));
+      var attempt=0;
+      while(true){
+        try{ await rawWrite(slice); break; }
+        catch(e){
+          attempt++;
+          log("送信リトライ"+attempt+"（"+(e&&e.message||e)+"）","e");
+          if(attempt===1 && canWith && !withResp){ withResp=true; log("→ 応答あり送信に切替"); }
+          else if(attempt===2 && canNR && withResp){ withResp=false; log("→ 応答なし送信に切替"); }
+          if(device && !device.gatt.connected){
+            log("再接続を試行…");
+            try{ var srv=await device.gatt.connect(); }catch(_){}
+          }
+          if(attempt>=5) throw e;
+          await sleep(150*attempt);
+        }
+      }
+      sent+=slice.length;
       setPrint("wait","送信中… "+Math.round(sent/payload.length*100)+"%");
-      await sleep(CONFIG.DELAY_MS);
+      await sleep(DL);
     }
     setPrint("on","印刷完了！");
     log("印刷データ送信 完了（"+sent+" バイト）", "t");
   }catch(e){
     setPrint("err","印刷に失敗");
-    log("印刷エラー: "+(e&&e.message||e)+"  → CHUNKを小さく/DELAY_MSを大きくして再試行", "e");
+    log("印刷エラー: "+(e&&e.message||e)+"  → 『低速・確実モード』にチェックして再試行してください", "e");
   }
 });
 
