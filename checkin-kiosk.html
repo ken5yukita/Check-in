@@ -1684,7 +1684,7 @@ function dash(ctx,x1,y,x2){for(var x=x1;x<x2;x+=12)ctx.fillRect(x,y,7,2);}
 
 /* ═══════ Canvas → ESC/POS ラスター → BLE ═══════ */
 function canvasToRasterBands(canvas,opt){
-  opt=opt||{}; var threshold=opt.threshold||170, band=opt.band||64;
+  opt=opt||{}; var threshold=opt.threshold||170, band=opt.band||256;
   var W=canvas.width,H=canvas.height;
   var data=canvas.getContext("2d").getImageData(0,0,W,H).data;
   var bpr=Math.ceil(W/8), bands=[];
@@ -1702,7 +1702,7 @@ function canvasToRasterBands(canvas,opt){
   return bands;
 }
 /* 堅牢な送信：応答あり優先、失敗時は方式切替・分割縮小・再接続してリトライ */
-var TX = { chunk: 400, delay: 0 };   // Mac向け高速設定（応答あり送信が自動で間隔調整）
+var TX = { chunk: 180, delay: 0 };   // 180=BLE MTU安全圏。応答なし送信で一気に流す
 async function rawWrite(slice, withResp){
   if(withResp && characteristic.writeValue) return characteristic.writeValue(slice);
   if(characteristic.writeValueWithoutResponse) return characteristic.writeValueWithoutResponse(slice);
@@ -1711,7 +1711,7 @@ async function rawWrite(slice, withResp){
 async function sendBytes(bytes){
   var canWith = characteristic.properties.write;
   var canNR   = characteristic.properties.writeWithoutResponse;
-  var withResp = canWith ? true : false;     // 既定は応答あり（Windows安定）
+  var withResp = canNR ? false : true;   // 既定は応答なし（高速）。失敗したら応答ありへ切替
   var chunk = TX.chunk;
   for(var i=0;i<bytes.length;i+=chunk){
     var slice=bytes.subarray(i, i+chunk);
@@ -1731,7 +1731,7 @@ async function sendBytes(bytes){
         await sleep(150*attempt);
       }
     }
-    await sleep(TX.delay);
+    if(TX.delay) await sleep(TX.delay);
   }
 }
 var ESC_INIT=Uint8Array.from([0x1B,0x40]), FEED=Uint8Array.from([0x0A,0x0A,0x0A,0x0A]);
@@ -1740,7 +1740,7 @@ async function printCanvas(canvas){
   var bands=canvasToRasterBands(canvas);
   log("印刷開始（"+bands.length+"バンド, "+(useNoResponse?"応答なし":"応答あり")+"送信）");
   await sendBytes(ESC_INIT);
-  for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); await sleep(3); }
+  for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); }
   await sendBytes(FEED);
   log("印刷送出 完了",true);
   return true;
@@ -1765,8 +1765,9 @@ async function issue(){
   clearTimeout(reset._t);
   var d=pick(DESTS);
   var seat=(Math.floor(Math.random()*30)+1)+"ABCDEF".charAt(Math.floor(Math.random()*6));
-  // QRは短く：名前は生（UTF-8）で入れ、座席・便名は入れない（読み取り優先）
-  var url=CONFIG.PASS_URL+"#n="+state.name+"&d="+d.code;
+  // QRはASCIIのみ（名前は%エンコード）：カメラアプリの文字コード誤解釈を防ぐ
+  // 座席・便名は入れない（券に印字するのみ）＝QRを小さく保つ
+  var url=CONFIG.PASS_URL+"#n="+encodeURIComponent(state.name)+"&d="+d.code;
   var ticketData={name:state.name, code:d.code, city:d.city, country:d.country, time:nowHM(), qr:url};
 
   // 券を（画面に出さず）裏で描画

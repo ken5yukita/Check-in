@@ -348,10 +348,18 @@ function parseTicket(raw){
   var i=raw.indexOf('#');
   var hash = i>=0 ? raw.slice(i+1) : '';
   var o={};
+  /* 生・%エンコード・二重エンコードのどれで来ても読めるようにする */
+  function dec(s){
+    for(var t=0;t<3;t++){
+      if(!/%[0-9A-Fa-f]{2}/.test(s)) break;
+      try{ var d=decodeURIComponent(s); if(d===s) break; s=d; }catch(e){ break; }
+    }
+    return s;
+  }
   hash.split('&').forEach(function(kv){
     var j=kv.indexOf('=');
     if(j<0) return;
-    try{ o[decodeURIComponent(kv.slice(0,j))]=decodeURIComponent(kv.slice(j+1)); }catch(e){}
+    o[dec(kv.slice(0,j))]=dec(kv.slice(j+1));
   });
   if(!o.n || !DESTS[o.d]) return null;
   var d=DESTS[o.d];
