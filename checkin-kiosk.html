@@ -162,13 +162,13 @@ body[data-step="1"] #s1{display:flex}
 
 <main>
   <section class="step" id="s1">
-    <h1 class="prompt">お名前を入力してください<span class="en">PASSENGER NAME</span></h1>
+    <h1 class="prompt">お名前を にゅうりょく<span class="en">PASSENGER NAME</span></h1>
     <input class="nameinput" id="nameInput" type="text" maxlength="12"
            autocomplete="off" autocapitalize="off" spellcheck="false"
-           placeholder="お名前を入力して Enter">
-    <p class="inhint">キーボードで名前を入力し、<b>Enter</b> または下のボタンで発券します。</p>
+           placeholder="なまえを入力して Enter">
+    <p class="inhint">キーボードで名前を入力し、<b>Enter</b> または下のボタンで発券します。行き先はランダムで、券が出るまでナイショです。</p>
     <div class="actions">
-      <button class="go" id="issueBtn" disabled>✈ 搭乗券を 発券する</button>
+      <button class="go" id="issueBtn" disabled>✈ とうじょうけんを 発券する</button>
     </div>
   </section>
 </main>
@@ -188,14 +188,14 @@ body[data-step="1"] #s1{display:flex}
       <div class="body"><span class="lamp"></span> PT-210</div>
     </div>
     <h2 id="fxName">発券しています…</h2>
-    <p class="msg" id="fxMsg">搭乗券を 印刷中</p>
+    <p class="msg" id="fxMsg">とうじょうけんを 印刷中</p>
   </div>
 
   <!-- 完了：行き先は出さない -->
   <div class="done" id="fxDone">
     <div class="tick">🎫</div>
-    <p class="to">発券完了！</p>
-    <p class="greet">搭乗券を お渡しください</p>
+    <p class="to">発券かんりょう！</p>
+    <p class="greet">とうじょうけんを おわたしください</p>
     <p class="take">行き先は ゲートの読み取り機で わかります</p>
     <button class="next" id="nextBtn">つぎの人へ</button>
     <p class="auto" id="autoBack"></p>
@@ -344,10 +344,10 @@ var CONFIG = {
   PASS_URL : "https://ken5yukita.github.io/Check-in/checkin-pass.html",
   FLIGHT   : "AC 0806",   // 便名固定
   MAX_LEN  : 8,
-  EC       : "Q",         // 丸ドットは誤り訂正を高めに
+  EC       : "M",         // 情報量を減らしたので誤り訂正Mでも十分・モジュールが大きく読みやすい
   PRINT_WIDTH : 384,
   QUIET    : 4,
-  FOOTER   : "Overseas department",
+  FOOTER   : "かいがいじぎょうとうかつぶ",
   ANIM_MS  : 2200         // アニメーションの長さ（印刷完了を待って完了画面へ）
 };
 
@@ -447,9 +447,9 @@ function isFinder(r,c,n){ return (r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7); }
 function drawTicket(canvas, d){
   var W=CONFIG.PRINT_WIDTH, quiet=CONFIG.QUIET, ctx=canvas.getContext("2d");
   var qr=TinyQR.encode(d.qr||" ", CONFIG.EC);
-  var n=qr.size, unit=n+quiet*2, scale=Math.max(2,Math.floor((W-64)/unit)), qrTotal=unit*scale;
+  var n=qr.size, unit=n+quiet*2, scale=Math.max(2,Math.floor((W-40)/unit)), qrTotal=unit*scale;
 
-  var H = 300 + qrTotal + 90;
+  var H = 282 + qrTotal + 84;
   canvas.width=W; canvas.height=H;
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
   ctx.fillStyle="#000"; ctx.textBaseline="top";
@@ -457,55 +457,51 @@ function drawTicket(canvas, d){
 
   dash(ctx,16,14,W-16);
   ctx.textAlign="left";
-  ctx.font="700 22px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText("BOARDING PASS",20,30);
+  ctx.font="700 24px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText("とうじょうけん",20,30);
   ctx.textAlign="right";
-  ctx.font="600 16px system-ui,sans-serif";
-  ctx.fillText("✈ FAMILY DAY",W-20,36);
+  ctx.font="600 15px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText("✈ かぞくの ひ",W-20,38);
   ctx.textAlign="left";
-  ctx.font="13px "+"'SFMono-Regular',ui-monospace,monospace";
-  ctx.fillText("社員家族見学会 チェックイン",20,60);
-  hr(ctx,20,86,W-20);
+  ctx.font="13px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText("しゃいんかぞく けんがくかい",20,62);
+  hr(ctx,20,88,W-20);
 
-  ctx.font="12px system-ui,sans-serif"; ctx.fillText("PASSENGER / お名前",20,98);
-  ctx.font="700 30px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText(d.name||"",20,116);
+  ctx.font="12px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif"; ctx.fillText("おなまえ",20,100);
+  ctx.font="700 32px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText((d.name||"")+" さん",20,118);
 
-  // FLIGHT / TO / TIME（受付番号なし）
-  var cols=[["FLIGHT",CONFIG.FLIGHT],["TO",d.code],["TIME",d.time]];
+  // びんめい / いきさき / じかん（受付番号なし）
+  var cols=[["びんめい",CONFIG.FLIGHT],["いきさき",d.code],["じかん",d.time]];
   var colW=(W-40)/3;
-  ctx.font="11px "+"'SFMono-Regular',ui-monospace,monospace";
-  cols.forEach(function(c,i){ctx.fillText(c[0],20+i*colW,168);});
+  ctx.font="12px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  cols.forEach(function(c,i){ctx.fillText(c[0],20+i*colW,172);});
   ctx.font="700 22px system-ui,sans-serif";
-  cols.forEach(function(c,i){ctx.fillText(c[1],20+i*colW,184);});
-  hr(ctx,20,222,W-20);
+  cols.forEach(function(c,i){ctx.fillText(c[1],20+i*colW,190);});
+  hr(ctx,20,228,W-20);
 
-  // 行き先＋現地語あいさつ（QRの上の余白帯）
+  // いきさき（QRの上）※現地語あいさつは印字しない
   ctx.textAlign="center";
-  ctx.font="700 20px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText(d.city+"（"+d.country+"）ゆき",cx,236);
-  ctx.font="700 26px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText(d.word,cx,262);
-  ctx.font="14px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText("＝ "+d.mean,cx,292);
+  ctx.font="700 22px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.fillText(d.city+"（"+d.country+"）ゆき",cx,244);
   ctx.textAlign="left";
 
-  // 丸ドットQR（ファインダー3隅は四角のまま＝検出安定）
-  var oy=300, ox=Math.round((W-qrTotal)/2);
+  // 丸ドットQR（ファインダー3隅は四角／データは少し大きめの丸＝読み取り優先）
+  var oy=282, ox=Math.round((W-qrTotal)/2);
   for(var r=0;r<n;r++)for(var c=0;c<n;c++){
     if(!qr.modules[r][c]) continue;
     var px=ox+(c+quiet)*scale, py=oy+(r+quiet)*scale;
     if(isFinder(r,c,n)){
-      ctx.fillRect(px,py,scale,scale);            // ファインダー：四角
+      ctx.fillRect(px,py,scale,scale);
     }else{
-      var rad=scale*0.5, ccx=px+scale/2, ccy=py+scale/2;
-      ctx.beginPath(); ctx.arc(ccx,ccy,rad,0,Math.PI*2); ctx.fill();   // データ：丸ドット
+      var rad=scale*0.58, ccx=px+scale/2, ccy=py+scale/2;   // 隣と少しつなぐ＝読み取り安定
+      ctx.beginPath(); ctx.arc(ccx,ccy,rad,0,Math.PI*2); ctx.fill();
     }
   }
 
   var fy=H-24;
   ctx.textAlign="center";
-  ctx.font="700 14px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
+  ctx.font="700 15px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
   ctx.fillText(CONFIG.FOOTER,cx,fy-20);
   ctx.textAlign="left";
   dash(ctx,16,fy,W-16);
@@ -596,7 +592,8 @@ async function issue(){
   clearTimeout(reset._t);
   var d=pick(DESTS);
   var seat=(Math.floor(Math.random()*30)+1)+"ABCDEF".charAt(Math.floor(Math.random()*6));
-  var url=CONFIG.PASS_URL+"#n="+encodeURIComponent(state.name)+"&d="+d.code+"&s="+seat+"&f="+encodeURIComponent(CONFIG.FLIGHT);
+  // QRは短く：名前は生（UTF-8）で入れ、座席・便名は入れない（読み取り優先）
+  var url=CONFIG.PASS_URL+"#n="+state.name+"&d="+d.code;
   var ticketData={name:state.name, code:d.code, city:d.city, country:d.country, time:nowHM(), qr:url};
 
   // 券を（画面に出さず）裏で描画
@@ -607,7 +604,7 @@ async function issue(){
   // paper のアニメを毎回頭から流す
   var paper=$("paper"); paper.style.animation="none"; void paper.offsetWidth; paper.style.animation="";
   $("fxName").textContent = state.name+" さん、発券しています…";
-  var msgs=["搭乗券を 印刷中","QRコードを 印刷中","もうすぐ できあがり"];
+  var msgs=["とうじょうけんを 印刷中","QRコードを 印刷中","もうすぐ できあがり"];
   var mi=0; $("fxMsg").textContent=msgs[0];
   var msgTimer=setInterval(function(){ mi=(mi+1)%msgs.length; $("fxMsg").textContent=msgs[mi]; }, 700);
 
