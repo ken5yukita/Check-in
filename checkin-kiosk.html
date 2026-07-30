@@ -1571,6 +1571,7 @@ function setConnected(on){
   $("pstat").textContent = on ? "プリンター接続OK" : "プリンター未接続";
 }
 async function findWritable(server){
+  var withResp=null, nrOnly=null;
   for(var i=0;i<PRINTER_SERVICES.length;i++){
     var su=PRINTER_SERVICES[i];
     try{
@@ -1578,15 +1579,17 @@ async function findWritable(server){
       var chars=await svc.getCharacteristics();
       for(var j=0;j<chars.length;j++){
         var c=chars[j];
-        if(c.properties.writeWithoutResponse||c.properties.write){
-          /* Windowsでは応答あり送信(write)の方が安定するため、あれば優先。 */
-          useNoResponse = c.properties.write ? false : true;
-          log("書込経路: "+su.slice(0,8)+" / "+c.uuid.slice(0,8)+" ["+(useNoResponse?"応答なし":"応答あり")+"]"); return c;
-        }
+        /* 応答あり送信(write)ができる口を最優先。無ければ応答なしのみの口を控えに */
+        if(c.properties.write && !withResp){ withResp=c; }
+        else if(c.properties.writeWithoutResponse && !nrOnly){ nrOnly=c; }
       }
     }catch(_){}
   }
-  throw new Error("書き込み可能なcharacteristicが見つかりません");
+  var pick = withResp || nrOnly;
+  if(!pick) throw new Error("書き込み可能なcharacteristicが見つかりません");
+  useNoResponse = !withResp;
+  log("書込経路: "+pick.uuid.slice(0,8)+" ["+(withResp?"応答あり可":"応答なしのみ")+"]");
+  return pick;
 }
 $("connectBtn").addEventListener("click", async function(){
   if(device && device.gatt.connected){ device.gatt.disconnect(); return; }
@@ -1701,47 +1704,56 @@ function canvasToRasterBands(canvas,opt){
   }
   return bands;
 }
-/* 堅牢な送信：応答あり優先、失敗時は方式切替・分割縮小・再接続してリトライ */
-var TX = { chunk: 180, delay: 2 };   // 180=BLE MTU安全圏。応答なし送信で一気に流す
-async function rawWrite(slice, withResp){
-  if(withResp && characteristic.writeValue) return characteristic.writeValue(slice);
-  if(characteristic.writeValueWithoutResponse) return characteristic.writeValueWithoutResponse(slice);
-  return characteristic.writeValue(slice);
+/* ── 送信：ESC/POSの画像データは1バイトも欠けてはいけない ──
+   ・必ず「応答あり送信(writeValue)」を使う。受領を待つので取りこぼしが起きない。
+     （応答なし送信は流量制御が無く、黙ってパケットが捨てられて画像が壊れる）
+   ・送信方式は印刷の最初に決め、途中で絶対に切り替えない（切り替えると同期が崩れる）
+   ・チャンクは180バイト（BLEの安全圏）
+   ・失敗が続いたら、壊れた印刷を続けずに中断する                        */
+var TX = { chunk: 180 };
+var txWithResp = true;      // 印刷開始時に決定
+
+async function rawWrite(slice){
+  if(txWithResp) return characteristic.writeValue(slice);
+  return characteristic.writeValueWithoutResponse(slice);
 }
 async function sendBytes(bytes){
-  var canWith = characteristic.properties.write;
-  var canNR   = characteristic.properties.writeWithoutResponse;
-  var withResp = canNR ? false : true;   // 既定は応答なし（高速）。失敗したら応答ありへ切替
   var chunk = TX.chunk;
   for(var i=0;i<bytes.length;i+=chunk){
     var slice=bytes.subarray(i, i+chunk);
     var attempt=0;
     while(true){
-      try{ await rawWrite(slice, withResp); break; }
+      try{ await rawWrite(slice); break; }
       catch(e){
         attempt++;
-        log("送信リトライ"+attempt+"（"+(e.message||e)+"）","e");
-        if(attempt===1 && canWith && !withResp){ withResp=true; log("→ 応答あり送信に切替"); }
-        else if(attempt===2 && canNR && withResp){ withResp=false; log("→ 応答なし送信に切替"); }
-        if(device && !device.gatt.connected){
-          log("再接続を試行…");
-          try{ var s=await device.gatt.connect(); characteristic=await findWritable(s); }catch(_){}
+        if(attempt>=4){
+          log("送信失敗（"+(e.message||e)+"）→ 印刷を中断します","e");
+          throw e;                      /* 続けると文字化けするので中断 */
         }
-        if(attempt>=5) throw e;
-        await sleep(150*attempt);
+        log("再送"+attempt+"（"+(e.message||e)+"）","e");
+        await sleep(60*attempt);         /* 同じ塊を同じ方式で送り直す */
       }
     }
-    if(TX.delay) await sleep(TX.delay);
   }
 }
 var ESC_INIT=Uint8Array.from([0x1B,0x40]), FEED=Uint8Array.from([0x0A,0x0A,0x0A,0x0A]);
 async function printCanvas(canvas){
   if(!characteristic){ log("未接続のため印刷スキップ","e"); return false; }
+  /* 方式をここで確定（以後この印刷中は変えない） */
+  txWithResp = !!characteristic.properties.write;
+  if(!txWithResp && !characteristic.properties.writeWithoutResponse){
+    log("書き込みできない経路です","e"); return false;
+  }
   var bands=canvasToRasterBands(canvas);
-  log("印刷開始（"+bands.length+"バンド, "+(useNoResponse?"応答なし":"応答あり")+"送信）");
-  await sendBytes(ESC_INIT);
-  for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); await sleep(10); }
-  await sendBytes(FEED);
+  log("印刷開始（"+bands.length+"バンド／"+(txWithResp?"応答あり":"応答なし")+"送信）");
+  try{
+    await sendBytes(ESC_INIT);
+    for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); }
+    await sendBytes(FEED);
+  }catch(e){
+    log("印刷を中断しました（用紙を捨てて再発券してください）","e");
+    return false;
+  }
   log("印刷送出 完了",true);
   return true;
 }
