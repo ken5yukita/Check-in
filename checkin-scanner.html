@@ -21,7 +21,8 @@
   --ok:#3fae6b;
   --stock:#e9efe4;
   --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"MS Gothic",monospace;
-  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
+  /* Mac→Hiragino、Windows→メイリオ優先（游ゴシックは太字が細く潰れるため後ろに回す） */
+  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Meiryo","Noto Sans JP","Yu Gothic Medium","Yu Gothic","MS PGothic",sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;height:100dvh}   /* dvh=バーの有無に追従する実際の表示高さ */
