@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#10161b">
+<!-- ホーム画面に追加すると、アドレスバー・ツールバーの無い全画面で起動する -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="スキャナー">
 <title>とうじょうけん スキャナー｜海外事業部</title>
 <style>
 :root{
@@ -19,7 +24,7 @@
   --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
+html,body{height:100%;height:100dvh}   /* dvh=バーの有無に追従する実際の表示高さ */
 body{
   font-family:var(--jp);background:var(--board);color:var(--amber);
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
@@ -183,23 +188,48 @@ body[data-view="error"] #error{display:flex}
 #error code{background:var(--board-2);color:var(--amber);padding:.1em .5em;border-radius:3px;font-family:var(--mono);font-size:.85em}
 .retry{background:transparent;border:2px solid var(--amber);color:var(--amber);border-radius:5px;font-family:var(--jp);font-weight:700;font-size:1rem;padding:.6em 1.6em;cursor:pointer}
 
-/* ── 横画面（テレビ等へ16:9で出すとき）：左に国旗・名前、右にあいさつ・意味 ── */
-@media (orientation:landscape) and (max-height:600px){
+/* ── 横画面（テレビ等へ16:9で出すとき） ────────────────
+   高さ(vh)基準でサイズを決め、画面内に必ず収まるようにする。
+   端末の高さに関わらず横向きなら常に発動させる。            */
+@media (orientation:landscape){
+  .result{padding:2vh 3vw}
   .rcard{
-    max-width:min(94vw,1040px);width:100%;
-    display:grid;grid-template-columns:auto 1fr;align-items:center;
-    gap:clamp(1rem,3vw,2.4rem);
-    padding:clamp(1rem,3vh,1.8rem) clamp(1.4rem,4vw,2.8rem);
-    border-radius:24px;text-align:left;
+    max-width:min(96vw,1200px);width:100%;
+    max-height:92vh;overflow:hidden;
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    grid-template-rows:auto auto auto auto;
+    align-items:center;
+    gap:.6vh clamp(1rem,3vw,2.4rem);
+    padding:2.5vh clamp(1.2rem,3.5vw,2.6rem);
+    border-radius:clamp(14px,2vh,26px);text-align:left;
   }
-  .rflag{grid-row:1/4;font-size:clamp(3.5rem,22vh,7rem)}
-  .rwelcome{grid-column:2;font-size:clamp(1.2rem,5vh,2rem);align-self:end}
-  .rname{grid-column:2;font-size:clamp(2rem,11vh,4rem);align-self:start}
-  .greetbox{grid-column:2;width:auto;align-self:start}
-  .rgreet{font-size:clamp(1.6rem,8vh,3rem)}
-  .rmean{font-size:clamp(1rem,4.5vh,1.6rem)}
-  .rcity{grid-column:2;font-size:clamp(1.1rem,5vh,1.8rem)}
-  .rfun{grid-column:2;font-size:clamp(.85rem,4vh,1.3rem);max-width:none}
+  /* 左：国旗を縦にまたいで大きく */
+  .rflag{
+    grid-column:1;grid-row:1/5;
+    font-size:min(26vh,20vw);line-height:1;margin:0;
+  }
+  /* 右：上から ようこそ／なまえ／あいさつ／くに */
+  .rwelcome{grid-column:2;grid-row:1;font-size:min(5vh,4vw);align-self:end;margin:0}
+  .rname   {grid-column:2;grid-row:2;font-size:min(13vh,11vw);align-self:start;margin:0}
+  .greetbox{
+    grid-column:2;grid-row:3;width:auto;max-width:none;align-self:center;
+    padding:1.6vh clamp(.8rem,2vw,1.6rem);border-radius:clamp(10px,1.6vh,18px);
+  }
+  .rgreet{font-size:min(8.5vh,7vw);line-height:1.15}
+  .rmean {font-size:min(4vh,3.4vw);margin-top:.2em}
+  .rmean::after{font-size:.75em}
+  .rcity {grid-column:2;grid-row:4;font-size:min(4.4vh,3.8vw);align-self:start;margin:0}
+  /* 豆知識は横画面では隠す（被り防止・遠くからは読めないため） */
+  .rfun{display:none}
+  .plainval{grid-column:1/3;font-size:min(3vh,3vw)}
+  .rbadge{font-size:min(2.2vh,2.2vw)}
+  .result .rdismiss{bottom:1vh;font-size:min(2vh,2vw)}
+}
+
+/* ── ホーム画面から起動した全画面モード（バーが消えた状態） ── */
+@media (display-mode:standalone),(display-mode:fullscreen){
+  .result .rdismiss{bottom:calc(1vh + env(safe-area-inset-bottom))}
 }
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
