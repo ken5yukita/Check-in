@@ -1631,7 +1631,7 @@ function drawTicket(canvas, d){
   var qr=TinyQR.encode(d.qr||" ", CONFIG.EC);
   var n=qr.size, unit=n+quiet*2, scale=Math.max(2,Math.floor((W-40)/unit)), qrTotal=unit*scale;
 
-  var H = 282 + qrTotal + 84;
+  var H = 282 + qrTotal + 58;   /* QR下：フッター文字＋切り取り線ぶんだけ */
   canvas.width=W; canvas.height=H;
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
   ctx.fillStyle="#000"; ctx.textBaseline="top";
@@ -1716,7 +1716,10 @@ function canvasToRasterBands(canvas,opt){
 var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
              (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1) ||
              /Bluefy/i.test(navigator.userAgent);
-var TX = { chunk: IS_IOS ? 20 : 180 };
+/* iOS(Bluefy)は分割事故を避けて20バイト。
+   Android/PCのChromeは大きく送って高速化（失敗したら自動で段階的に下げる） */
+var CHUNK_STEPS = IS_IOS ? [20] : [512, 320, 180, 60];
+var TX = { chunk: CHUNK_STEPS[0] };
 var txWithResp = true;
 var printing = false;        // 二重印刷ガード
 
@@ -1766,28 +1769,39 @@ async function abortPrint(){
 async function printCanvas(canvas){
   if(!characteristic){ log("未接続のため印刷スキップ","e"); return false; }
   if(printing){ log("印刷中のため無視しました","e"); return false; }
-  /* 方式をここで確定（以後この印刷中は変えない）。
-     iOSでは properties が空のことがあるため writeValue の有無で判断する。 */
+  /* 方式を確定。iOSでは properties が空のことがあるため writeValue の有無で判断 */
   txWithResp = !!(characteristic.write || characteristic.writeValue);
   if(characteristic.properties && characteristic.properties.write===false
      && characteristic.properties.writeWithoutResponse===true){
     txWithResp = false;
   }
-  printing = true;
   var bands=canvasToRasterBands(canvas);
-  log("印刷開始（"+bands.length+"バンド／"+(txWithResp?"応答あり":"応答なし")+"送信／chunk"+TX.chunk+(IS_IOS?" iOS":"")+"）");
-  try{
-    await sendBytes(ESC_INIT);
-    for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); }
-    await sendBytes(FEED);
-  }catch(e){
-    log("印刷を中断しました（用紙を捨てて再発券してください）","e");
-    printing=false;
-    return false;
+
+  /* 大きいチャンクから試し、失敗したら小さくして最初からやり直す */
+  for(var s=0; s<CHUNK_STEPS.length; s++){
+    TX.chunk = CHUNK_STEPS[s];
+    printing = true;
+    log("印刷開始（"+bands.length+"バンド／"+(txWithResp?"応答あり":"応答なし")+"送信／chunk"+TX.chunk+(IS_IOS?" iOS":"")+"）");
+    try{
+      await sendBytes(ESC_INIT);
+      for(var b=0;b<bands.length;b++){ await sendBytes(bands[b]); }
+      await sendBytes(FEED);
+      printing=false;
+      log("印刷送出 完了",true);
+      return true;
+    }catch(e){
+      printing=false;
+      if(String(e && e.message).indexOf("中断")>=0){ log("停止しました","e"); return false; }
+      if(s < CHUNK_STEPS.length-1){
+        log("chunk"+TX.chunk+"で失敗 → chunk"+CHUNK_STEPS[s+1]+"で再試行","e");
+        await sleep(200);
+      }else{
+        log("印刷を中断しました（用紙を捨てて再発券してください）","e");
+        return false;
+      }
+    }
   }
-  printing = false;
-  log("印刷送出 完了",true);
-  return true;
+  return false;
 }
 
 /* ═══════ 発券フロー（アニメ→印刷→完了画面） ═══════ */
