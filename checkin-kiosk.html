@@ -1629,9 +1629,13 @@ function isFinder(r,c,n){ return (r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7); }
 function drawTicket(canvas, d){
   var W=CONFIG.PRINT_WIDTH, quiet=CONFIG.QUIET, ctx=canvas.getContext("2d");
   var qr=TinyQR.encode(d.qr||" ", CONFIG.EC);
-  var n=qr.size, unit=n+quiet*2, scale=Math.max(2,Math.floor((W-40)/unit)), qrTotal=unit*scale;
+  var n=qr.size, unit=n+quiet*2;
+  /* QRは読み取りに十分な大きさを保ちつつ、送信量を抑えるため上限を設ける
+     （1モジュール0.6mm以上あればスマホカメラで安定して読める） */
+  var scale=Math.max(2, Math.min(5, Math.floor((W-40)/unit)));
+  var qrTotal=unit*scale;
 
-  var H = 282 + qrTotal + 58;   /* QR下：フッター文字＋切り取り線ぶんだけ */
+  var H = 250 + qrTotal + 58;   /* QR下：フッター文字＋切り取り線ぶんだけ */
   canvas.width=W; canvas.height=H;
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
   ctx.fillStyle="#000"; ctx.textBaseline="top";
@@ -1646,30 +1650,30 @@ function drawTicket(canvas, d){
   ctx.fillText("✈ かぞくの ひ",W-20,38);
   ctx.textAlign="left";
   ctx.font="13px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText("しゃいんかぞく けんがくかい",20,62);
-  hr(ctx,20,88,W-20);
+  ctx.fillText("しゃいんかぞく けんがくかい",20,60);
+  hr(ctx,20,84,W-20);
 
-  ctx.font="12px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif"; ctx.fillText("おなまえ",20,100);
+  ctx.font="12px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif"; ctx.fillText("おなまえ",20,94);
   ctx.font="700 32px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText((d.name||"")+" さん",20,118);
+  ctx.fillText((d.name||"")+" さん",20,110);
 
   // びんめい / いきさき / じかん（受付番号なし）
   var cols=[["びんめい",CONFIG.FLIGHT],["いきさき",d.code],["じかん",d.time]];
   var colW=(W-40)/3;
   ctx.font="12px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  cols.forEach(function(c,i){ctx.fillText(c[0],20+i*colW,172);});
+  cols.forEach(function(c,i){ctx.fillText(c[0],20+i*colW,158);});
   ctx.font="700 22px system-ui,sans-serif";
-  cols.forEach(function(c,i){ctx.fillText(c[1],20+i*colW,190);});
-  hr(ctx,20,228,W-20);
+  cols.forEach(function(c,i){ctx.fillText(c[1],20+i*colW,176);});
+  hr(ctx,20,212,W-20);
 
   // いきさき（QRの上）※現地語あいさつは印字しない
   ctx.textAlign="center";
   ctx.font="700 22px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText(d.city+"（"+d.country+"）ゆき",cx,244);
+  ctx.fillText(d.city+"（"+d.country+"）ゆき",cx,222);
   ctx.textAlign="left";
 
   // QR：確実に読める四角モジュール。座標・サイズを整数に丸めてにじみ/ズレを防ぐ
-  var oy=282, ox=Math.round((W-qrTotal)/2);
+  var oy=250, ox=Math.round((W-qrTotal)/2);
   for(var r=0;r<n;r++)for(var c=0;c<n;c++){
     if(!qr.modules[r][c]) continue;
     var px=Math.round(ox+(c+quiet)*scale), py=Math.round(oy+(r+quiet)*scale);
@@ -1717,8 +1721,10 @@ var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
              (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1) ||
              /Bluefy/i.test(navigator.userAgent);
 /* iOS(Bluefy)は分割事故を避けて20バイト。
-   Android/PCのChromeは大きく送って高速化（失敗したら自動で段階的に下げる） */
-var CHUNK_STEPS = IS_IOS ? [20] : [512, 320, 180, 60];
+   Android/PCは180バイト（実績あり）。
+   ※512や320は書き込みが「成功」と返るのにデータが欠けることがあり、
+     エラーにならないまま文字化けするので使わない。 */
+var CHUNK_STEPS = IS_IOS ? [20] : [180, 60, 20];
 var TX = { chunk: CHUNK_STEPS[0] };
 var txWithResp = true;
 var printing = false;        // 二重印刷ガード
