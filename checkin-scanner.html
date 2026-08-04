@@ -99,6 +99,8 @@ body[data-view="error"] #error{display:flex}
   position:absolute;inset:0;z-index:6;display:none;cursor:pointer;
   flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:clamp(1rem,4vw,2rem);
+  overflow:hidden;              /* 巨大な放射光がはみ出さないように */
+  isolation:isolate;            /* 内部の重なり順の基準にする */
   /* 空港の朝焼けのような やわらかいグラデーション */
   background:
     radial-gradient(120% 90% at 50% 0%, #fff3d6 0%, #ffe1b0 32%, #ffd0e0 66%, #d9e8ff 100%);
@@ -142,24 +144,30 @@ body[data-view="error"] #error{display:flex}
 @keyframes namepop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
 
 /* 紙吹雪（券が読めたときだけ舞う） */
-.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
 
 /* ── 背後で回る放射状の光 ── */
 .rays{
   position:absolute;left:50%;top:50%;width:220vmax;height:220vmax;
-  transform:translate(-50%,-50%);pointer-events:none;z-index:0;opacity:0;
+  transform:translate(-50%,-50%);pointer-events:none;z-index:1;opacity:0;
+  mix-blend-mode:multiply;      /* 明るい背景の上でも縞がはっきり出る */
   background:repeating-conic-gradient(from 0deg,
-    rgba(255,214,140,.30) 0deg 7deg, rgba(255,214,140,0) 7deg 14deg);
+    rgba(255,168,60,.34) 0deg 6deg, rgba(255,168,60,0) 6deg 14deg);
 }
 .rays.on{animation:rayIn .5s ease-out forwards, raySpin 22s linear infinite}
-@keyframes rayIn{to{opacity:1}}
-@keyframes raySpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes rayIn{from{opacity:0}to{opacity:1}}
+@keyframes raySpin{
+  from{transform:translate(-50%,-50%) rotate(0deg)}
+  to  {transform:translate(-50%,-50%) rotate(360deg)}
+}
 
 /* ── はじけるキラキラ ── */
-.sparkle{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3}
+.sparkle{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
 .sparkle i{
   position:absolute;font-size:1.6rem;opacity:0;
-  animation:spark .9s ease-out forwards;
+  margin-left:-.5em;margin-top:-.5em;   /* 指定座標を中心にする */
+  animation:spark 1s ease-out forwards;
+  text-shadow:0 2px 6px rgba(255,180,60,.6);
 }
 @keyframes spark{
   0%{opacity:0;transform:scale(.2) rotate(0)}
@@ -283,7 +291,11 @@ body[data-view="error"] #error{display:flex}
   .result .rdismiss{bottom:calc(1vh + env(safe-area-inset-bottom))}
 }
 
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* 端末の「アニメーションを減らす」設定を尊重する。ただし展示用に
+   body.fx-force が付いているときは演出を出す（FORCE_EFFECTS=true のとき付与） */
+@media (prefers-reduced-motion:reduce){
+  body:not(.fx-force) *{animation:none!important;transition:none!important}
+}
 </style>
 </head>
 <body data-view="idle">
@@ -353,7 +365,8 @@ body[data-view="error"] #error{display:flex}
    ★ 設定
    ═══════════════════════════════════════════════════════════ */
 var CONFIG = {
-  ANNOUNCE_VOICE : true    // 音声で「◯◯行きへ ようこそ」と読み上げる（対応端末のみ）
+  ANNOUNCE_VOICE : true,   // 音声で「◯◯行きへ ようこそ」と読み上げる（対応端末のみ）
+  FORCE_EFFECTS  : true    // 展示モード：端末の「アニメーションを減らす」設定を無視して演出を出す
   /* 結果は、次の人のQRを読むか、画面を1回タップして消すまで表示し続けます */
 };
 
@@ -417,11 +430,50 @@ function chime(){
   note(1318.5, 0.10, 0.13, 0.30);
   note(1568.0, 0.20, 0.34, 0.34);
 }
+/* ══ 読み上げ ══════════════════════════════════════════
+   端末に入っている日本語音声のうち、最も自然なものを自動で選ぶ。
+   Windows標準のHaruka/Ayumi/Ichiroは機械的なので、
+   ニューラル音声(Nanami/Keita/Online系)があればそちらを優先する。 */
+var pickedVoice=null, voicesReady=false;
+var VOICE_PREFER = [
+  "nanami","keita","online","natural","neural",  /* Windows/Edgeのニューラル音声 */
+  "kyoko","o-ren","otoya","siri",                /* macOS/iOSの高品質音声 */
+  "google 日本語","google japanese"              /* Chromeの内蔵音声 */
+];
+function chooseVoice(){
+  if(!window.speechSynthesis) return null;
+  var vs=window.speechSynthesis.getVoices()||[];
+  var ja=vs.filter(function(v){ return /^ja/i.test(v.lang||""); });
+  if(!ja.length) return null;
+  /* 好ましい名前から順に探す */
+  for(var i=0;i<VOICE_PREFER.length;i++){
+    for(var j=0;j<ja.length;j++){
+      if((ja[j].name||"").toLowerCase().indexOf(VOICE_PREFER[i])>=0) return ja[j];
+    }
+  }
+  /* 見つからなければ、ローカル合成より品質が高いことが多いリモート音声を優先 */
+  for(var k=0;k<ja.length;k++){ if(ja[k].localService===false) return ja[k]; }
+  return ja[0];
+}
+function refreshVoice(){
+  var v=chooseVoice();
+  if(v){ pickedVoice=v; voicesReady=true; }
+}
+if(window.speechSynthesis){
+  refreshVoice();
+  /* 音声一覧は非同期で読み込まれるので、届いたら選び直す */
+  window.speechSynthesis.onvoiceschanged=refreshVoice;
+}
+
 function announce(text){
   if(!CONFIG.ANNOUNCE_VOICE || !window.speechSynthesis) return;
   try{
+    if(!pickedVoice) refreshVoice();
     var u=new SpeechSynthesisUtterance(text);
-    u.lang="ja-JP"; u.rate=1.0; u.pitch=1.05;
+    u.lang="ja-JP";
+    if(pickedVoice) u.voice=pickedVoice;
+    /* 少しゆっくり・やや低めにすると、機械的な印象がやわらぐ */
+    u.rate=0.95; u.pitch=1.0; u.volume=1.0;
     /* チャイムの余韻の後に喋らせる */
     setTimeout(function(){ window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }, 700);
   }catch(e){}
@@ -472,7 +524,8 @@ function handleHit(value){
     ["rWelcome","rName","rGreetBox","rCity"].forEach(function(id){ $(id).style.display=""; });
     $("rFun").style.display = tk.fun ? "" : "none";
     $("rPlain").style.display = "none";
-    announce(tk.city+"ゆきへ ようこそ、"+tk.name+"さん。"+tk.word+"。にほんごで、"+tk.mean+"。");
+    /* 読点と句点で「間」を作ると、機械音声でも自然に聞こえる */
+    announce(tk.name+"さん、"+tk.city+"ゆきへ、ようこそ。 "+tk.word+"。 "+tk.mean+"、という いみです。");
     $("rStamp").style.display="";
     burstConfetti();
   }else{
@@ -502,6 +555,8 @@ function clearResult(){
 var CONFETTI_COLORS=["#f0a73b","#e0572c","#3aa76d","#3a6ea5","#e8b4c8","#f5d547","#8e6fd8"];
 var SPARKLES=["✨","⭐","🌟","💫","✈️","🎉"];
 function reduceMotion(){
+  /* 展示モード（FORCE_EFFECTS）では端末設定に関わらず演出を出す */
+  if(CONFIG.FORCE_EFFECTS) return false;
   return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 function clearConfetti(){
@@ -729,6 +784,9 @@ document.addEventListener("visibilitychange", function(){ if(document.hidden && 
 /* iOSの拡大縮小・長押しを抑制 */
 document.addEventListener("gesturestart", function(e){ e.preventDefault(); });
 document.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+
+/* 展示モード：端末の「アニメーションを減らす」設定に負けないようにする */
+if(CONFIG.FORCE_EFFECTS) document.body.classList.add("fx-force");
 })();
 </script>
 </body>
