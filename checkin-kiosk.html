@@ -1533,6 +1533,10 @@ var CONFIG = {
   LOGO_URL : "logo.png",
   LOGO_SIZE : 34,          // ロゴの高さ(px) 34px≒4mm
   LOGO_THRESHOLD : 200,    // 2値化のしきい値（薄いと消える→上げる／潰れる→下げる）
+  /* Bluetooth一覧をこの名前で始まる機器だけに絞る。
+     PT-210は個体で表示名が違うため複数指定。
+     実機の表示名が分かったら、その1つだけにするとさらに速い。 */
+  PRINTER_NAME_PREFIXES : ["PT-2","PT2","MTP-","MPT-","Printer","BlueTooth Printer","RPP","GOOJPRT","Thermal"],
   ANIM_MS  : 900          // 発券アニメの長さ（短く・一気に）
 };
 
@@ -1604,7 +1608,25 @@ $("connectBtn").addEventListener("click", async function(){
   if(!navigator.bluetooth){ log("navigator.bluetooth なし（Chrome/Edgeを使用）","e"); return; }
   try{
     log("デバイス選択…");
-    device=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:PRINTER_SERVICES});
+    /* 会社では周囲に大量のBluetooth機器があるため、まず名前で絞り込む。
+       PT-210は個体により表示名が違うので、代表的な接頭辞をまとめて指定。
+       見つからない場合だけ「すべて表示」に切り替える。 */
+    try{
+      device=await navigator.bluetooth.requestDevice({
+        filters: CONFIG.PRINTER_NAME_PREFIXES.map(function(p){ return {namePrefix:p}; }),
+        optionalServices: PRINTER_SERVICES
+      });
+    }catch(errFilter){
+      if(errFilter && errFilter.name==="NotFoundError"){
+        /* ユーザーがキャンセルした場合もここに来るので、意思確認してから全表示 */
+        log("絞り込みでは見つかりませんでした","e");
+        if(!confirm("PT-210 が一覧に出ませんでした。\nすべてのBluetooth機器から探しますか？")) throw errFilter;
+        log("すべての機器から探します…");
+        device=await navigator.bluetooth.requestDevice({
+          acceptAllDevices:true, optionalServices:PRINTER_SERVICES
+        });
+      }else{ throw errFilter; }
+    }
     device.addEventListener("gattserverdisconnected",function(){ setConnected(false); log("切断"); });
     var server=await device.gatt.connect();
     characteristic=await findWritable(server);
