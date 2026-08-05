@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>チェックインカウンター｜Overseas Business Manegement Department</title>
+<title>チェックインカウンター｜Overseas department</title>
 <style>
 :root{
   --stock:#e9efe4; --stock-2:#dbe4d3; --ink:#1b3a5c; --ink-soft:#5f7a95;
@@ -154,7 +154,7 @@ body[data-step="1"] #s1{display:flex}
 
 <div class="board">
   <span class="plane">✈</span>
-  <span class="div-name">Overseas Business Manegement Department</span>
+  <span class="div-name">OVERSEAS DEPARTMENT</span>
   <span class="spacer"></span>
   <span class="pstat"><span class="pdot" id="pdot"></span><span id="pstat">プリンター未接続</span></span>
   <button class="pbtn amber" id="connectBtn">接続</button>
@@ -164,7 +164,7 @@ body[data-step="1"] #s1{display:flex}
 
 <main>
   <section class="step" id="s1">
-    <h1 class="prompt">お名前を 入力してください<span class="en">PASSENGER NAME</span></h1>
+    <h1 class="prompt">お名前を にゅうりょく<span class="en">PASSENGER NAME</span></h1>
     <input class="nameinput" id="nameInput" type="text" maxlength="12"
            autocomplete="off" autocapitalize="off" spellcheck="false"
            placeholder="なまえを入力して Enter">
@@ -190,7 +190,7 @@ body[data-step="1"] #s1{display:flex}
       <div class="body"><span class="lamp"></span> PT-210</div>
     </div>
     <h2 id="fxName">発券しています…</h2>
-    <p class="msg" id="fxMsg">搭乗券を 印刷中</p>
+    <p class="msg" id="fxMsg">とうじょうけんを 印刷中</p>
   </div>
 
   <!-- 完了：行き先は出さない -->
@@ -1527,6 +1527,12 @@ var CONFIG = {
   PRINT_WIDTH : 384,
   QUIET    : 4,
   FOOTER   : "かいがいじぎょうとうかつぶ",
+  /* 券の右上に入れるロゴ画像。リポジトリに置いたファイル名を指定。
+     感熱印刷は白黒なので、色は自動で2値化される。
+     用意できない場合は "" にすればロゴなしで印刷される。 */
+  LOGO_URL : "logo.png",
+  LOGO_SIZE : 34,          // ロゴの高さ(px) 34px≒4mm
+  LOGO_THRESHOLD : 200,    // 2値化のしきい値（薄いと消える→上げる／潰れる→下げる）
   ANIM_MS  : 900          // 発券アニメの長さ（短く・一気に）
 };
 
@@ -1626,6 +1632,24 @@ window.addEventListener("load", function(){ try{ nameInput.focus(); }catch(_){} 
 
 /* ═══════ 券のCanvas描画（丸ドットQR・現地語・AC 0806・時刻） ═══════ */
 function isFinder(r,c,n){ return (r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7); }
+/* ── ロゴ画像の読み込み（起動時に一度だけ） ──
+   読み込めなくても券は正常に印刷される（ロゴ無しになるだけ） */
+var logoImg=null, logoReady=false;
+(function loadLogo(){
+  if(!CONFIG.LOGO_URL) return;
+  var im=new Image();
+  im.crossOrigin="anonymous";       /* 同一リポジトリ内なら問題なし */
+  im.onload=function(){
+    logoImg=im; logoReady=true;
+    log("ロゴを読み込みました（"+im.width+"x"+im.height+"）");
+  };
+  im.onerror=function(){
+    logoReady=false;
+    log("ロゴ画像 "+CONFIG.LOGO_URL+" を読み込めません（ロゴ無しで印刷します）","e");
+  };
+  im.src=CONFIG.LOGO_URL;
+})();
+
 function drawTicket(canvas, d){
   var W=CONFIG.PRINT_WIDTH, quiet=CONFIG.QUIET, ctx=canvas.getContext("2d");
   var qr=TinyQR.encode(d.qr||" ", CONFIG.EC);
@@ -1644,13 +1668,26 @@ function drawTicket(canvas, d){
   dash(ctx,16,14,W-16);
   ctx.textAlign="left";
   ctx.font="700 24px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText("とうじょうけん",20,30);
-  ctx.textAlign="right";
-  ctx.font="600 15px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
-  ctx.fillText("✈ かぞくの ひ",W-20,38);
-  ctx.textAlign="left";
+  ctx.fillText("とうじょうけん ✈",20,30);
   ctx.font="13px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif";
   ctx.fillText("しゃいんかぞく けんがくかい",20,60);
+
+  /* 右上にロゴ（読み込めていれば描画。失敗しても券は正常に出る） */
+  if(logoReady && logoImg){
+    var lh=CONFIG.LOGO_SIZE;                          /* ロゴの高さ(px) */
+    var lw=Math.round(lh*(logoImg.width/logoImg.height));
+    var lx=W-20-lw, ly=24;
+    ctx.drawImage(logoImg, lx, ly, lw, lh);
+    /* 感熱は白黒なので、薄い色が飛ばないよう2値化しておく */
+    var id=ctx.getImageData(lx,ly,lw,lh), p=id.data;
+    for(var i=0;i<p.length;i+=4){
+      var a=p[i+3];
+      var lum=a===0?255:(p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114);
+      var v=lum<CONFIG.LOGO_THRESHOLD?0:255;
+      p[i]=p[i+1]=p[i+2]=v; p[i+3]=255;
+    }
+    ctx.putImageData(id,lx,ly);
+  }
   hr(ctx,20,84,W-20);
 
   ctx.font="12px system-ui,'Hiragino Sans','Noto Sans JP',sans-serif"; ctx.fillText("おなまえ",20,94);
