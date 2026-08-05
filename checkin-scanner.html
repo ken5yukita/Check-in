@@ -83,6 +83,20 @@ body[data-view="error"] #error{display:flex}
 .finder .bl{bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 6px}
 .finder .br{bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 6px 0}
 .finder.hit span{border-color:var(--ok);transition:border-color .1s}
+
+/* 枠の中央に薄く出すQRのガイド。かざす対象が一目でわかる */
+.qrguide{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:46%;height:46%;color:#fff;opacity:.22;
+  pointer-events:none;
+  animation:guidePulse 2.4s ease-in-out infinite;
+}
+@keyframes guidePulse{
+  0%,100%{opacity:.16;transform:translate(-50%,-50%) scale(1)}
+  50%    {opacity:.30;transform:translate(-50%,-50%) scale(1.05)}
+}
+/* 読み取れた瞬間はガイドを消す */
+.finder.hit .qrguide{opacity:0;transition:opacity .15s}
 .hint{
   position:absolute;left:0;right:0;bottom:calc(2rem + env(safe-area-inset-bottom));
   text-align:center;font-family:var(--mono);letter-spacing:.16em;
@@ -322,7 +336,39 @@ body[data-view="error"] #error{display:flex}
   <video id="video" playsinline muted autoplay></video>
   <canvas id="frame" hidden></canvas>
   <div class="veil">
-    <div class="finder" id="finder"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+    <div class="finder" id="finder">
+      <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+      <!-- 中央のガイド：QRだと直感的にわかる簡略イラスト（薄く表示） -->
+      <svg class="qrguide" viewBox="0 0 100 100" aria-hidden="true">
+        <!-- 3隅の位置検出パターン -->
+        <g fill="none" stroke="currentColor" stroke-width="7">
+          <rect x="6"  y="6"  width="26" height="26" rx="4"/>
+          <rect x="68" y="6"  width="26" height="26" rx="4"/>
+          <rect x="6"  y="68" width="26" height="26" rx="4"/>
+        </g>
+        <g fill="currentColor">
+          <rect x="15" y="15" width="8" height="8" rx="2"/>
+          <rect x="77" y="15" width="8" height="8" rx="2"/>
+          <rect x="15" y="77" width="8" height="8" rx="2"/>
+          <!-- データ部っぽいドット -->
+          <rect x="44" y="8"  width="8" height="8" rx="2"/>
+          <rect x="44" y="24" width="8" height="8" rx="2"/>
+          <rect x="56" y="40" width="8" height="8" rx="2"/>
+          <rect x="44" y="52" width="8" height="8" rx="2"/>
+          <rect x="8"  y="44" width="8" height="8" rx="2"/>
+          <rect x="24" y="44" width="8" height="8" rx="2"/>
+          <rect x="40" y="44" width="8" height="8" rx="2"/>
+          <rect x="72" y="44" width="8" height="8" rx="2"/>
+          <rect x="88" y="56" width="6" height="8" rx="2"/>
+          <rect x="68" y="60" width="8" height="8" rx="2"/>
+          <rect x="52" y="68" width="8" height="8" rx="2"/>
+          <rect x="68" y="76" width="8" height="8" rx="2"/>
+          <rect x="84" y="76" width="8" height="8" rx="2"/>
+          <rect x="44" y="86" width="8" height="8" rx="2"/>
+          <rect x="60" y="88" width="8" height="6" rx="2"/>
+        </g>
+      </svg>
+    </div>
     <p class="hint">QRコードを わくに あわせてね</p>
   </div>
   <button class="stopbtn" id="stopBtn">とじる</button>
