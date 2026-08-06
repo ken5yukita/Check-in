@@ -1676,9 +1676,9 @@ function drawTicket(canvas, d){
   var W=CONFIG.PRINT_WIDTH, quiet=CONFIG.QUIET, ctx=canvas.getContext("2d");
   var qr=TinyQR.encode(d.qr||" ", CONFIG.EC);
   var n=qr.size, unit=n+quiet*2;
-  /* QRは読み取りに十分な大きさを保ちつつ、送信量を抑えるため上限を設ける
-     （1モジュール0.6mm以上あればスマホカメラで安定して読める） */
-  var scale=Math.max(2, Math.min(5, Math.floor((W-40)/unit)));
+  /* QRは読み取りやすさ優先。1モジュール0.75mmを確保する
+     （0.63mmでは感度が落ちたため6に戻した。券は6mm長くなる） */
+  var scale=Math.max(2, Math.min(6, Math.floor((W-40)/unit)));
   var qrTotal=unit*scale;
 
   var H = 250 + qrTotal + 58;   /* QR下：フッター文字＋切り取り線ぶんだけ */
